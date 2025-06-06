@@ -61,14 +61,21 @@ class AuthController {
         invalidated: false,
       });
 
-      const isProdution = NODE_ENV === "production";
-      res.cookie("Access_Token", token, {
+      // Fixed cookie settings for Safari compatibility
+      const isProduction = NODE_ENV === "production";
+
+      const cookieOptions = {
         httpOnly: true,
-        secure: isProdution,
-        sameSite: isProdution ? "none" : "lax",
-        maxAge: 24 * 60 * 60 * 1000,
+        secure: isProduction || req.get("x-forwarded-proto") === "https",
+        sameSite: isProduction ? ("none" as const) : ("lax" as const),
+        maxAge: 24 * 60 * 60 * 1000, // 24 hours
         path: "/",
-      });
+        // Add domain for production if needed
+        ...(isProduction &&
+          process.env.COOKIE_DOMAIN && { domain: process.env.COOKIE_DOMAIN }),
+      };
+
+      res.cookie("Access_Token", token, cookieOptions);
 
       res.status(200).json({
         success: true,
@@ -102,13 +109,20 @@ class AuthController {
         sessionID: token,
       });
 
-      const isProdution = NODE_ENV === "production";
-      res.clearCookie("Access_Token", {
+      // Fixed cookie clearing for Safari compatibility
+      const isProduction = NODE_ENV === "production";
+
+      const cookieOptions = {
         httpOnly: true,
-        secure: isProdution,
-        sameSite: isProdution ? "none" : "lax",
+        secure: isProduction || req.get("x-forwarded-proto") === "https",
+        sameSite: isProduction ? ("none" as const) : ("lax" as const),
         path: "/",
-      });
+        // Add domain for production if needed
+        ...(isProduction &&
+          process.env.COOKIE_DOMAIN && { domain: process.env.COOKIE_DOMAIN }),
+      };
+
+      res.clearCookie("Access_Token", cookieOptions);
 
       res.status(200).json({
         success: true,

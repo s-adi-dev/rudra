@@ -1,6 +1,6 @@
 import { NextFunction, Request, Response } from "express";
 import jwt from "jsonwebtoken";
-import { JWT_SECRET } from "../config/dotenv";
+import { JWT_SECRET, NODE_ENV } from "../config/dotenv";
 import { AuthLogModel } from "../models/auth";
 import User from "../models/user";
 import createError from "../utils/createError";
@@ -33,7 +33,17 @@ const verifyToken = async (req: Request, res: Response, next: NextFunction) => {
     // Find the user in database
     const user = await User.findById(decoded._id).select("-password");
     if (!user) {
-      res.clearCookie("Access_Token");
+      // Clear cookie with same options used when setting it
+      const isProduction = NODE_ENV === "production";
+      const cookieOptions = {
+        httpOnly: true,
+        secure: isProduction || req.get("x-forwarded-proto") === "https",
+        sameSite: isProduction ? ("none" as const) : ("lax" as const),
+        path: "/",
+        ...(isProduction &&
+          process.env.COOKIE_DOMAIN && { domain: process.env.COOKIE_DOMAIN }),
+      };
+      res.clearCookie("Access_Token", cookieOptions);
       return next(createError(401, "User not found"));
     }
 
@@ -44,7 +54,17 @@ const verifyToken = async (req: Request, res: Response, next: NextFunction) => {
     });
 
     if (!lastAuthLog) {
-      res.clearCookie("Access_Token");
+      // Clear cookie with same options used when setting it
+      const isProduction = NODE_ENV === "production";
+      const cookieOptions = {
+        httpOnly: true,
+        secure: isProduction || req.get("x-forwarded-proto") === "https",
+        sameSite: isProduction ? ("none" as const) : ("lax" as const),
+        path: "/",
+        ...(isProduction &&
+          process.env.COOKIE_DOMAIN && { domain: process.env.COOKIE_DOMAIN }),
+      };
+      res.clearCookie("Access_Token", cookieOptions);
       return next(createError(401, "Session expired or invalidated"));
     }
 
@@ -61,8 +81,17 @@ const verifyToken = async (req: Request, res: Response, next: NextFunction) => {
     req.user = decoded;
     next();
   } catch (error) {
-    // Clear the cookie if token verification fails
-    res.clearCookie("Access_Token");
+    // Clear the cookie if token verification fails with proper options
+    const isProduction = NODE_ENV === "production";
+    const cookieOptions = {
+      httpOnly: true,
+      secure: isProduction || req.get("x-forwarded-proto") === "https",
+      sameSite: isProduction ? ("none" as const) : ("lax" as const),
+      path: "/",
+      ...(isProduction &&
+        process.env.COOKIE_DOMAIN && { domain: process.env.COOKIE_DOMAIN }),
+    };
+    res.clearCookie("Access_Token", cookieOptions);
     next(createError(401, "Invalid token"));
   }
 };
