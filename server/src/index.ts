@@ -14,6 +14,7 @@ import {
   clientRoute,
   inventoryRoute,
   roleRoute,
+  targetRoute,
   userRoute,
   visitRoute,
 } from "./routes";
@@ -77,6 +78,7 @@ app.use("/api/client-partner", clientPartnerRoute);
 app.use("/api/analytics", analyticsRoute);
 app.use("/api/inventory", inventoryRoute);
 app.use("/api/bank", bankRoute);
+app.use("/api/target", targetRoute);
 
 // Error handling middleware
 app.use((err: any, req: Request, res: Response, next: NextFunction) => {

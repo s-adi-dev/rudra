@@ -8,6 +8,7 @@ import clientPartnerRoute from "./client-partner";
 import clientBookingRoute from "./clientBooking";
 import inventoryRoute from "./inventory";
 import roleRoute from "./role";
+import targetRoute from "./target";
 import userRoute from "./user";
 import visitRoute from "./visit";
 
@@ -22,6 +23,7 @@ export {
   clientRoute,
   inventoryRoute,
   roleRoute,
+  targetRoute,
   userRoute,
   visitRoute,
 };

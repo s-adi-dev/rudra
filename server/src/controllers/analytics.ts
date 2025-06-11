@@ -1,7 +1,6 @@
 import { NextFunction, Request, Response } from "express";
 import { Client } from "../models/client";
 import ClientBooking from "../models/clientBooking";
-import { VisitType } from "../models/visit";
 import createError from "../utils/createError";
 
 type StatusKey = "hot" | "warm" | "cold" | "lost" | "booked";
@@ -16,18 +15,10 @@ class analyticsController {
       // Extract query parameters for potential filtering
       const { startDate, endDate, manager } = req.query;
 
-      // Initialize the status counts
-      const statusCounts = {
-        hot: 0,
-        warm: 0,
-        cold: 0,
-        lost: 0,
-        booked: 0,
-      };
-
       // Build date filter if dates are provided
-      let dateFilter: { $gte?: Date; $lte?: Date } = {};
+      let dateFilter: any = {};
       if (startDate || endDate) {
+        dateFilter = {};
         if (startDate) {
           const start = new Date(startDate as string);
           start.setHours(0, 0, 0, 0);
@@ -41,7 +32,7 @@ class analyticsController {
       }
 
       // Build manager filter if manager is provided
-      let managerFilter = {};
+      let managerFilter: any = {};
       if (manager) {
         managerFilter = {
           $or: [
@@ -52,45 +43,105 @@ class analyticsController {
         };
       }
 
-      // Get all clients with their visits (get ALL visits)
-      const clients = await Client.find().populate<{ visits: VisitType[] }>({
-        path: "visits",
-        options: { sort: { date: -1 } }, // Sort by date descending
-        match: managerFilter, // Apply only manager filter here
+      // Build aggregation pipeline
+      const pipeline: any[] = [
+        // Lookup visits for each client
+        {
+          $lookup: {
+            from: "visits", // Collection name for visits
+            localField: "visits",
+            foreignField: "_id",
+            as: "visitData",
+          },
+        },
+        // Filter out clients with no visits
+        {
+          $match: {
+            visitData: { $ne: [] },
+          },
+        },
+        // Unwind visits to work with them individually
+        {
+          $unwind: "$visitData",
+        },
+        // Apply manager filter if provided
+        ...(Object.keys(managerFilter).length > 0
+          ? [
+              {
+                $match: {
+                  $expr: {
+                    $or:
+                      managerFilter.$or?.map((condition: any) => {
+                        const field = Object.keys(condition)[0];
+                        return {
+                          $eq: [`$visitData.${field}`, condition[field]],
+                        };
+                      }) || [],
+                  },
+                },
+              },
+            ]
+          : []),
+        // Apply date filter if provided
+        ...(Object.keys(dateFilter).length > 0
+          ? [
+              {
+                $match: {
+                  "visitData.date": dateFilter,
+                },
+              },
+            ]
+          : []),
+        // Sort visits by date descending to get latest visit per client
+        {
+          $sort: {
+            "visitData.date": -1,
+          },
+        },
+        // Group by client to get only the latest visit
+        {
+          $group: {
+            _id: "$_id",
+            latestVisit: { $first: "$visitData" },
+          },
+        },
+        // Group by status to count occurrences
+        {
+          $group: {
+            _id: "$latestVisit.status",
+            count: { $sum: 1 },
+          },
+        },
+        // Project to match expected output format
+        {
+          $project: {
+            status: "$_id",
+            count: 1,
+            _id: 0,
+          },
+        },
+      ];
+
+      const results = (await Client.aggregate(pipeline)) as {
+        status: string;
+        count: number;
+      }[];
+
+      // Initialize the status counts
+      const statusCounts = {
+        hot: 0,
+        warm: 0,
+        cold: 0,
+        lost: 0,
+        booked: 0,
+      };
+
+      // Fill in the counts from aggregation results
+      results.forEach((result: { status: string; count: number }) => {
+        if (isValidStatus(result.status)) {
+          statusCounts[result.status] = result.count;
+        }
       });
-
-      // Process each client
-      for (const client of clients) {
-        if (!client.visits || client.visits.length === 0) {
-          continue;
-        }
-
-        // Only consider the latest visit for each client
-        const latestVisit = client.visits[0]; // Already sorted by date descending
-
-        // Check if the latest visit falls within our date filter
-        if (startDate || endDate) {
-          const visitDate = new Date(latestVisit.date);
-
-          if (startDate) {
-            const start = new Date(startDate as string);
-            start.setHours(0, 0, 0, 0);
-            if (visitDate < start) continue; // Skip if visit is before start date
-          }
-
-          if (endDate) {
-            const end = new Date(endDate as string);
-            end.setHours(23, 59, 59, 999);
-            if (visitDate > end) continue; // Skip if visit is after end date
-          }
-        }
-
-        // Count this client's status if the latest visit is within the date range
-        const status = latestVisit.status;
-        if (isValidStatus(status)) {
-          statusCounts[status]++;
-        }
-      }
 
       res.status(200).json(statusCounts);
     } catch (error) {
@@ -112,12 +163,12 @@ class analyticsController {
         parseInt(req.query.year as string) || new Date().getFullYear();
 
       // Create date range for the specified year
-      const startDate = new Date(year, 0, 1); // January 1st of the specified year
-      const endDate = new Date(year, 11, 31, 23, 59, 59, 999); // December 31st of the specified year
+      const startDate = new Date(year, 0, 1);
+      const endDate = new Date(year, 11, 31, 23, 59, 59, 999);
 
       // Optionally filter by manager if provided
       const { manager } = req.query;
-      let managerFilter = {};
+      let managerFilter: any = {};
       if (manager) {
         managerFilter = {
           $or: [
@@ -128,59 +179,128 @@ class analyticsController {
         };
       }
 
-      // Get all clients with their visits within the specified year (excluding booked visits)
-      const clients = await Client.find().populate<{ visits: VisitType[] }>({
-        path: "visits",
-        match: {
-          date: { $gte: startDate, $lte: endDate },
-          ...managerFilter,
+      // Aggregation pipeline for client visits
+      const clientPipeline: any[] = [
+        // Lookup visits for each client
+        {
+          $lookup: {
+            from: "visits",
+            localField: "visits",
+            foreignField: "_id",
+            as: "visitData",
+          },
         },
-        options: { sort: { date: -1 } }, // Sort visits by date descending
-      });
+        // Unwind visits
+        {
+          $unwind: "$visitData",
+        },
+        // Match visits within date range and manager filter
+        {
+          $match: {
+            "visitData.date": { $gte: startDate, $lte: endDate },
+            ...(Object.keys(managerFilter).length > 0 && {
+              $expr: {
+                $or:
+                  managerFilter.$or?.map((condition: any) => {
+                    const field = Object.keys(condition)[0];
+                    return { $eq: [`$visitData.${field}`, condition[field]] };
+                  }) || [],
+              },
+            }),
+          },
+        },
+        // Sort by date descending
+        {
+          $sort: {
+            "visitData.date": -1,
+          },
+        },
+        // Group by client to get latest visit only
+        {
+          $group: {
+            _id: "$_id",
+            latestVisit: { $first: "$visitData" },
+          },
+        },
+        // Group by month and count clients
+        {
+          $group: {
+            _id: { $month: "$latestVisit.date" },
+            clientCount: { $sum: 1 },
+          },
+        },
+        // Project to format output
+        {
+          $project: {
+            month: "$_id",
+            client: "$clientCount",
+            _id: 0,
+          },
+        },
+        // Sort by month
+        {
+          $sort: { month: 1 },
+        },
+      ];
+
+      // Aggregation pipeline for bookings
+      const bookingPipeline: any[] = [
+        // Match bookings within date range and not canceled
+        {
+          $match: {
+            date: { $gte: startDate, $lte: endDate },
+            status: { $ne: "canceled" },
+            ...(manager && { salesManager: manager }),
+          },
+        },
+        // Group by month and count bookings
+        {
+          $group: {
+            _id: { $month: "$date" },
+            bookingCount: { $sum: 1 },
+          },
+        },
+        // Project to format output
+        {
+          $project: {
+            month: "$_id",
+            booking: "$bookingCount",
+            _id: 0,
+          },
+        },
+        // Sort by month
+        {
+          $sort: { month: 1 },
+        },
+      ];
+
+      // Execute both aggregations
+      const [clientResults, bookingResults] = await Promise.all([
+        Client.aggregate(clientPipeline) as Promise<
+          { month: number; client: number }[]
+        >,
+        ClientBooking.aggregate(bookingPipeline) as Promise<
+          { month: number; booking: number }[]
+        >,
+      ]);
 
       // Initialize monthly statistics array
       const monthlyStats = Array(12)
         .fill(0)
         .map(() => ({
-          client: 0, // Total clients that visited
-          booking: 0, // Clients with "booked" status
+          client: 0,
+          booking: 0,
         }));
 
-      // Process each client ONCE based on their most recent visit only
-      for (const client of clients) {
-        if (!client.visits || client.visits.length === 0) continue;
-
-        // Only use the most recent visit for this client
-        const latestVisit = client.visits[0]; // Already sorted by date descending
-        const visitDate = new Date(latestVisit.date);
-        const month = visitDate.getMonth(); // 0-based (January is 0)
-
-        // Count this client once in the month of their latest visit
-        monthlyStats[month].client++;
-      }
-
-      // Now get bookings from ClientBooking table
-      let bookingFilter: any = {
-        date: { $gte: startDate, $lte: endDate },
-        status: { $ne: "canceled" }, // exclude bookings with "canceled" status
-      };
-
-      // Add manager filter for bookings
-      if (manager) {
-        bookingFilter.salesManager = manager;
-      }
-
-      // Get all bookings within the specified year
-      const bookings = await ClientBooking.find(bookingFilter).sort({
-        date: -1,
+      // Fill in client counts
+      clientResults.forEach((result) => {
+        monthlyStats[result.month - 1].client = result.client;
       });
 
-      // Count bookings by month
-      for (const booking of bookings) {
-        const bookingDate = new Date(booking.date);
-        const month = bookingDate.getMonth(); // 0-based (January is 0)
-        monthlyStats[month].booking++;
-      }
+      // Fill in booking counts
+      bookingResults.forEach((result) => {
+        monthlyStats[result.month - 1].booking = result.booking;
+      });
 
       // Format the response with month names
       const monthNames = [
@@ -205,7 +325,7 @@ class analyticsController {
           client: stats.client,
           booking: stats.booking,
         }))
-        .filter((month) => month.client > 0); //remove filter-line to include months with 0 clients
+        .filter((month) => month.client > 0);
 
       // Calculate summary totals
       const totalClients = formattedResponse.reduce(
@@ -254,28 +374,17 @@ class analyticsController {
         parseInt(req.query.year as string) || new Date().getFullYear();
 
       // Create date range for the specified year
-      const startDate = new Date(year, 0, 1); // January 1st of the specified year
-      const endDate = new Date(year, 11, 31, 23, 59, 59, 999); // December 31st of the specified year
+      const startDate = new Date(year, 0, 1);
+      const endDate = new Date(year, 11, 31, 23, 59, 59, 999);
 
       // Optionally filter by manager if provided
       const { manager } = req.query;
-      let managerFilter = {};
+      let managerFilter: any = {};
       if (manager) {
-        managerFilter = {
-          salesManager: manager,
-        };
+        managerFilter = { salesManager: manager };
       }
 
-      // Initialize monthly statistics array
-      const monthlyStats = Array(12)
-        .fill(0)
-        .map(() => ({
-          booking: 0, // Count of bookings (booked, cnc, registeration-process, loan-process)
-          registration: 0, // Count of registrations (registered)
-          canceled: 0, // Count of canceled bookings
-        }));
-
-      // Define booking statuses (excluding canceled and registered)
+      // Define booking statuses
       const bookingStatuses = [
         "booked",
         "cnc",
@@ -283,59 +392,119 @@ class analyticsController {
         "loan-process",
       ];
 
-      // Get all bookings within the specified year (excluding canceled & registration)
-      const bookingFilter = {
-        date: { $gte: startDate, $lte: endDate },
-        status: { $in: bookingStatuses },
-        ...managerFilter,
-      };
+      // Aggregation pipeline for all statistics
+      const pipeline: any[] = [
+        // Match bookings within date range and manager filter
+        {
+          $match: {
+            date: { $gte: startDate, $lte: endDate },
+            ...managerFilter,
+          },
+        },
+        // Group by month and status
+        {
+          $group: {
+            _id: {
+              month: { $month: "$date" },
+              status: "$status",
+            },
+            count: { $sum: 1 },
+          },
+        },
+        // Group by month to aggregate all status counts
+        {
+          $group: {
+            _id: "$_id.month",
+            statusCounts: {
+              $push: {
+                status: "$_id.status",
+                count: "$count",
+              },
+            },
+          },
+        },
+        // Project to calculate booking, registration, and canceled counts
+        {
+          $project: {
+            month: "$_id",
+            booking: {
+              $sum: {
+                $map: {
+                  input: "$statusCounts",
+                  as: "sc",
+                  in: {
+                    $cond: [
+                      { $in: ["$$sc.status", bookingStatuses] },
+                      "$$sc.count",
+                      0,
+                    ],
+                  },
+                },
+              },
+            },
+            registration: {
+              $sum: {
+                $map: {
+                  input: "$statusCounts",
+                  as: "sc",
+                  in: {
+                    $cond: [
+                      { $eq: ["$$sc.status", "registered"] },
+                      "$$sc.count",
+                      0,
+                    ],
+                  },
+                },
+              },
+            },
+            canceled: {
+              $sum: {
+                $map: {
+                  input: "$statusCounts",
+                  as: "sc",
+                  in: {
+                    $cond: [
+                      { $eq: ["$$sc.status", "canceled"] },
+                      "$$sc.count",
+                      0,
+                    ],
+                  },
+                },
+              },
+            },
+            _id: 0,
+          },
+        },
+        // Sort by month
+        {
+          $sort: { month: 1 },
+        },
+      ];
 
-      const bookings = await ClientBooking.find(bookingFilter).sort({
-        date: -1,
+      const results = (await ClientBooking.aggregate(pipeline)) as {
+        month: number;
+        booking: number;
+        registration: number;
+        canceled: number;
+      }[];
+
+      // Initialize monthly statistics array
+      const monthlyStats = Array(12)
+        .fill(0)
+        .map(() => ({
+          booking: 0,
+          registration: 0,
+          canceled: 0,
+        }));
+
+      // Fill in the results
+      results.forEach((result) => {
+        monthlyStats[result.month - 1] = {
+          booking: result.booking,
+          registration: result.registration,
+          canceled: result.canceled,
+        };
       });
-
-      // Count bookings by month
-      for (const booking of bookings) {
-        const bookingDate = new Date(booking.date);
-        const month = bookingDate.getMonth(); // 0-based (January is 0)
-        monthlyStats[month].booking++;
-      }
-
-      // Get all registrations within the specified year
-      const registrationFilter = {
-        date: { $gte: startDate, $lte: endDate },
-        status: "registered",
-        ...managerFilter,
-      };
-
-      const registrations = await ClientBooking.find(registrationFilter).sort({
-        date: -1,
-      });
-
-      // Count registrations by month
-      for (const registration of registrations) {
-        const registrationDate = new Date(registration.date);
-        const month = registrationDate.getMonth(); // 0-based (January is 0)
-        monthlyStats[month].registration++;
-      }
-
-      // Get all canceled bookings within the specified year
-      const canceledFilter = {
-        date: { $gte: startDate, $lte: endDate },
-        status: "canceled",
-        ...managerFilter,
-      };
-
-      const canceledBookings = await ClientBooking.find(canceledFilter).sort({
-        date: -1,
-      });
-
-      // Count canceled bookings by month
-      for (const canceledBooking of canceledBookings) {
-        const canceledDate = new Date(canceledBooking.date);
-        const month = canceledDate.getMonth(); // 0-based (January is 0)
-        monthlyStats[month].canceled++;
-      }
 
       // Format the response with month names
       const monthNames = [
@@ -353,7 +522,7 @@ class analyticsController {
         "December",
       ];
 
-      // Include all months (don't filter out months with 0 activity for consistent chart display)
+      // Include all months (don't filter out months with 0 activity)
       const formattedResponse = monthlyStats.map((stats, index) => ({
         month: monthNames[index],
         booking: stats.booking,
@@ -361,39 +530,67 @@ class analyticsController {
         canceled: stats.canceled,
       }));
 
-      // Calculate summary totals (all months)
-      const totalBookings = monthlyStats.reduce(
-        (sum, stats) => sum + stats.booking,
-        0,
-      );
+      // Calculate summary totals using aggregation
+      const summaryPipeline: any[] = [
+        {
+          $match: {
+            date: { $gte: startDate, $lte: endDate },
+            ...managerFilter,
+          },
+        },
+        {
+          $group: {
+            _id: null,
+            totalBookings: {
+              $sum: {
+                $cond: [{ $in: ["$status", bookingStatuses] }, 1, 0],
+              },
+            },
+            totalRegistrations: {
+              $sum: {
+                $cond: [{ $eq: ["$status", "registered"] }, 1, 0],
+              },
+            },
+            totalCanceled: {
+              $sum: {
+                $cond: [{ $eq: ["$status", "canceled"] }, 1, 0],
+              },
+            },
+          },
+        },
+      ];
 
-      const totalRegistrations = monthlyStats.reduce(
-        (sum, stats) => sum + stats.registration,
-        0,
-      );
+      const summaryResult = (await ClientBooking.aggregate(
+        summaryPipeline,
+      )) as {
+        totalBookings: number;
+        totalRegistrations: number;
+        totalCanceled: number;
+      }[];
+      const summary = summaryResult[0] || {
+        totalBookings: 0,
+        totalRegistrations: 0,
+        totalCanceled: 0,
+      };
 
-      const totalCanceled = monthlyStats.reduce(
-        (sum, stats) => sum + stats.canceled,
-        0,
-      );
-
-      // Calculate total potential registrations (including canceled bookings)
-      const totalPotentialRegistrations = totalBookings + totalCanceled;
+      // Calculate total potential registrations
+      const totalPotentialRegistrations =
+        summary.totalBookings + summary.totalCanceled;
 
       res.status(200).json({
         year,
         monthlyStats: formattedResponse,
         summary: {
-          totalBookingsForYear: totalBookings,
-          totalRegistrationsForYear: totalRegistrations,
-          totalCanceledForYear: totalCanceled,
+          totalBookingsForYear: summary.totalBookings,
+          totalRegistrationsForYear: summary.totalRegistrations,
+          totalCanceledForYear: summary.totalCanceled,
           totalPotentialRegistrations: totalPotentialRegistrations,
           registrationRate:
             Math.round(
-              (totalRegistrations /
-                (totalRegistrations + totalPotentialRegistrations)) *
+              (summary.totalRegistrations /
+                (summary.totalRegistrations + totalPotentialRegistrations)) *
                 10000,
-            ) / 100, // Original rate for comparison
+            ) / 100,
         },
       });
     } catch (error) {
