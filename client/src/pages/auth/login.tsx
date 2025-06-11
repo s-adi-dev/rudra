@@ -1,4 +1,3 @@
-import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -12,10 +11,11 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input, PasswordInput } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { formatZodErrors } from "@/utils/func/zodUtils";
-import { ArrowRight, Loader2 } from "lucide-react";
-import { LoginUserSchema } from "@/utils/zod-schema/user";
 import { useAuth } from "@/store/auth";
+import { formatZodErrors } from "@/utils/func/zodUtils";
+import { LoginUserSchema } from "@/utils/zod-schema/user";
+import { ArrowRight, Loader2 } from "lucide-react";
+import { useEffect, useState } from "react";
 
 interface LoginUser {
   loginId: string;
@@ -61,7 +61,11 @@ export function LoginForm() {
   };
 
   const handleSubmit = () => {
-    const validation = LoginUserSchema.safeParse(user);
+    const formattedUser = {
+      loginId: user.loginId.trim(),
+      password: user.password.trim(),
+    };
+    const validation = LoginUserSchema.safeParse(formattedUser);
     if (!validation.success) {
       toast({
         title: "Login Error",
@@ -71,8 +75,8 @@ export function LoginForm() {
       return;
     }
 
-    handleRememberMe(user.loginId);
-    login(user);
+    handleRememberMe(formattedUser.loginId);
+    login(formattedUser);
   };
 
   return (
