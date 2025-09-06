@@ -5,6 +5,7 @@ import { useEffect } from "react";
 import { BookingReport } from "./booking";
 import { ClientReport } from "./client";
 import { ClientPartnerReport } from "./cp";
+import { InventorySummaryExcelReport } from "./excel-summary";
 import { InventoryReport } from "./inventory";
 import { InventorySummaryReport } from "./inventory-summary";
 import { SalesManagerReport } from "./target";
@@ -33,6 +34,9 @@ const Reports = () => {
     <div className="w-full grid place-items-center grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 p-6">
       {showReport("inventory-report") && <InventoryReport />}
       {showReport("inventory-summary-report") && <InventorySummaryReport />}
+      {showReport("inventory-summary-report") && (
+        <InventorySummaryExcelReport />
+      )}
       {showReport("booking-report") && <BookingReport />}
       {showReport("user-report") && <UserReport />}
       {showReport("client-report") && <ClientReport />}
