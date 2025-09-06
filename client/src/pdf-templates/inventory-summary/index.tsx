@@ -20,7 +20,7 @@ import RobotoBold from "@/fonts/roboto/Roboto-Bold.ttf";
 import RobotoBoldItalic from "@/fonts/roboto/Roboto-BoldItalic.ttf";
 import RobotoItalic from "@/fonts/roboto/Roboto-Italic.ttf";
 import RobotoRegular from "@/fonts/roboto/Roboto-Regular.ttf";
-import { ProjectType, WingType, unitStatus } from "@/store/inventory";
+import { ProjectType, WingType } from "@/store/inventory";
 import {
   ALL_UNIT_STATUSES,
   calculatePercentages,
@@ -125,8 +125,8 @@ const styles = StyleSheet.create({
 // Types for the summary data
 interface ProjectSummaryType {
   totalUnits: number;
-  statusCounts: Record<Exclude<unitStatus, "others">, number>;
-  percentages: Record<Exclude<unitStatus, "others">, string>;
+  statusCounts: Record<Exclude<string, "others">, number>;
+  percentages: Record<Exclude<string, "others">, string>;
 }
 
 interface WingSummaryDataItem {
@@ -138,7 +138,7 @@ interface WingSummaryDataItem {
 interface WingSummaryType {
   summaryData: WingSummaryDataItem[];
   totalRow: WingSummaryDataItem;
-  statusDistribution: Record<Exclude<unitStatus, "others">, number>;
+  statusDistribution: Record<Exclude<string, "others">, number>;
 }
 
 // Data processing functions

@@ -1,4 +1,3 @@
-import { unitStatus } from "@/store/inventory";
 import {
   Circle,
   G,
@@ -42,7 +41,7 @@ const styles = StyleSheet.create({
 });
 
 interface PieChartProps {
-  data: Record<Exclude<unitStatus, "others">, number>;
+  data: Record<Exclude<string, "others">, number>;
   size?: number;
   total: number;
 }
@@ -78,9 +77,7 @@ export const PieChart = ({ data, size = 140, total }: PieChartProps) => {
   // Generate pie slices
   let currentAngle = 0;
   const slices: JSX.Element[] = [];
-  const statusLabels = Object.keys(data) as Array<
-    Exclude<unitStatus, "others">
-  >;
+  const statusLabels = Object.keys(data) as Array<Exclude<string, "others">>;
 
   statusLabels.forEach((status, index) => {
     const value = data[status];

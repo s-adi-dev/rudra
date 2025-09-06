@@ -1,4 +1,3 @@
-import { unitStatus } from "@/store/inventory";
 import { StyleSheet, Text, View } from "@react-pdf/renderer";
 import _ from "lodash";
 import { getStatusColor } from "./utils";
@@ -32,7 +31,7 @@ const styles = StyleSheet.create({
 });
 
 interface StatusLegendProps {
-  statuses: Array<Exclude<unitStatus, "others">>;
+  statuses: Array<Exclude<string, "others">>;
 }
 
 export const StatusLegend = ({ statuses }: StatusLegendProps) => (

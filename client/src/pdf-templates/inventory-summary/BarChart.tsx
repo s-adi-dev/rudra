@@ -1,10 +1,9 @@
-import { unitStatus } from "@/store/inventory";
 import { G, Path, Rect, Svg, Text } from "@react-pdf/renderer";
 import _ from "lodash";
 import { getStatusColor } from "./utils";
 
 interface BarChartProps {
-  data: Record<Exclude<unitStatus, "others">, number>;
+  data: Record<Exclude<string, "others">, number>;
   width?: number;
   height?: number;
   barWidth?: number;
@@ -21,9 +20,7 @@ export const BarChart = ({
   const maxValue = Math.max(...Object.values(data)) || 1;
   const paddingTop = 20; // Space at the top for labels
   const scale = (height - 40 - paddingTop) / maxValue; // Adjusted scale to account for padding
-  const statusLabels = Object.keys(data) as Array<
-    Exclude<unitStatus, "others">
-  >;
+  const statusLabels = Object.keys(data) as Array<Exclude<string, "others">>;
 
   return (
     <Svg width={width} height={height}>

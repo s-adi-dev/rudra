@@ -1,9 +1,8 @@
-import { unitStatus } from "@/store/inventory";
 import { toProperCase } from "@/utils/func/strUtils";
 import { StyleSheet, Text, View } from "@react-pdf/renderer";
 import { ALL_UNIT_STATUSES } from "./utils";
 
-function getStatusHeader(status: Exclude<unitStatus, "others">) {
+function getStatusHeader(status: Exclude<string, "others">) {
   switch (status) {
     case "not-for-sale":
       return "N.F.S";

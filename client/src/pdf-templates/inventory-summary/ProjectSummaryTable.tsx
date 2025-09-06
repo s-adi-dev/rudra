@@ -1,9 +1,8 @@
-import { unitStatus } from "@/store/inventory";
 import { toProperCase } from "@/utils/func/strUtils";
 import { StyleSheet, Text, View } from "@react-pdf/renderer";
 import { ALL_UNIT_STATUSES, getStatusColor } from "./utils";
 
-function getStatusHeader(status: Exclude<unitStatus, "others">) {
+function getStatusHeader(status: Exclude<string, "others">) {
   switch (status) {
     case "not-for-sale":
       return "N.F.S";
@@ -93,8 +92,8 @@ const styles = StyleSheet.create({
 interface ProjectSummaryProps {
   summary: {
     totalUnits: number;
-    statusCounts: Record<Exclude<unitStatus, "others">, number>;
-    percentages: Record<Exclude<unitStatus, "others">, string>;
+    statusCounts: Record<Exclude<string, "others">, number>;
+    percentages: Record<Exclude<string, "others">, string>;
   };
 }
 

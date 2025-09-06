@@ -1,13 +1,7 @@
-import {
-  FloorType,
-  ProjectType,
-  unitStatus,
-  UnitType,
-  WingType,
-} from "@/store/inventory";
+import { FloorType, ProjectType, UnitType, WingType } from "@/store/inventory";
 
 // Constants
-export const STATUS_COLORS: Record<Exclude<unitStatus, "others">, string> = {
+export const STATUS_COLORS: Record<Exclude<string, "others">, string> = {
   available: "#ffffff", // White
   reserved: "#fff085", // Muted Green
   booked: "#ffba00", // Yellow
@@ -17,7 +11,7 @@ export const STATUS_COLORS: Record<Exclude<unitStatus, "others">, string> = {
   "not-for-sale": "#f5a97f", // Peach
 };
 
-export const ALL_UNIT_STATUSES: Array<Exclude<unitStatus, "others">> = [
+export const ALL_UNIT_STATUSES: Array<Exclude<string, "others">> = [
   "available",
   "canceled",
   "booked",
@@ -28,7 +22,7 @@ export const ALL_UNIT_STATUSES: Array<Exclude<unitStatus, "others">> = [
 ];
 
 // Helper functions
-export const getStatusColor = (status: Exclude<unitStatus, "others">): string =>
+export const getStatusColor = (status: Exclude<string, "others">): string =>
   STATUS_COLORS[status] || "#64748B";
 
 export const collectAllUnits = (project: ProjectType): UnitType[] => {
@@ -58,8 +52,8 @@ export const collectAllUnits = (project: ProjectType): UnitType[] => {
 
 export const calculateStatusCounts = (
   units: UnitType[],
-): Record<Exclude<unitStatus, "others">, number> => {
-  const counts: Partial<Record<Exclude<unitStatus, "others">, number>> = {};
+): Record<Exclude<string, "others">, number> => {
+  const counts: Partial<Record<Exclude<string, "others">, number>> = {};
 
   ALL_UNIT_STATUSES.forEach((status) => {
     counts[status] = units.filter(
@@ -67,20 +61,19 @@ export const calculateStatusCounts = (
     ).length;
   });
 
-  return counts as Record<Exclude<unitStatus, "others">, number>;
+  return counts as Record<Exclude<string, "others">, number>;
 };
 
 export const calculatePercentages = (
-  counts: Record<Exclude<unitStatus, "others">, number>,
+  counts: Record<Exclude<string, "others">, number>,
   total: number,
-): Record<Exclude<unitStatus, "others">, string> => {
-  const percentages: Partial<Record<Exclude<unitStatus, "others">, string>> =
-    {};
+): Record<Exclude<string, "others">, string> => {
+  const percentages: Partial<Record<Exclude<string, "others">, string>> = {};
 
   ALL_UNIT_STATUSES.forEach((status) => {
     percentages[status] =
       total > 0 ? ((counts[status] / total) * 100).toFixed(1) + "%" : "0%";
   });
 
-  return percentages as Record<Exclude<unitStatus, "others">, string>;
+  return percentages as Record<Exclude<string, "others">, string>;
 };
