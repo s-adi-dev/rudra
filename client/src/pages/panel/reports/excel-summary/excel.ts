@@ -11,12 +11,6 @@ export type InventoryCategoryType = {
   updatedAt: string;
 };
 
-/**
- * =============================
- *  Utilities & Styling Helpers
- * =============================
- */
-
 // Convert 1-based column index -> Excel column letter (A, B, ... AA)
 function colLetter(colIndex: number): string {
   let letter = "";
@@ -28,11 +22,9 @@ function colLetter(colIndex: number): string {
   return letter;
 }
 
-// Normalize strings for matching/sorting (always returns a string)
 const norm = (s: string | undefined | null): string =>
   (s ?? "").trim().toLowerCase();
 
-// Excel style snippets (centralized for maintainability)
 const ALIGN_CENTER: Partial<ExcelJS.Alignment> = {
   vertical: "middle",
   horizontal: "center",
@@ -57,7 +49,6 @@ const FILL_STATUS: ExcelJS.Fill = {
   fgColor: { argb: "FFF7F7F7" },
 };
 
-// Apply style to a rectangular range (inclusive)
 function styleRect(
   ws: ExcelJS.Worksheet,
   startRow: number,
@@ -74,7 +65,6 @@ function styleRect(
   }
 }
 
-// Apply border to a rectangular range (inclusive)
 function borderRect(
   ws: ExcelJS.Worksheet,
   startRow: number,
@@ -90,12 +80,10 @@ function borderRect(
   }
 }
 
-// Type guard: check if a CellValue is a formula object
 function isFormulaValue(v: CellValue): v is ExcelJS.CellFormulaValue {
   return !!v && typeof v === "object" && "formula" in v;
 }
 
-// Convert any CellValue to a human-readable string for autosizing
 function cellValueToString(v: CellValue | undefined): string {
   if (v == null) return "";
   if (typeof v === "string") return v;
@@ -103,15 +91,12 @@ function cellValueToString(v: CellValue | undefined): string {
   if (typeof v === "boolean") return v ? "TRUE" : "FALSE";
   if (v instanceof Date) return v.toISOString();
   if (isFormulaValue(v)) {
-    // Prefer result if available, otherwise show the formula
     if (v.result != null) return cellValueToString(v.result);
     return v.formula ?? "";
   }
-  // RichText / Hyperlink / etc. fall back to stringification
   return String(v);
 }
 
-// Set cell value with optional style merge (no `any`)
 function setCell(
   ws: ExcelJS.Worksheet,
   row: number,
@@ -140,10 +125,9 @@ function configSort(a: string, b: string) {
 
 /**
  * ==============================================
- *  Main: Build Residential Status Summary Sheet
- *  - Everything centered
- *  - Borders applied to all used cells
- *  - Helpers & constants for maintainability
+ *  Build Residential Status Summary Sheet
+ *  - Formulas include cached results for mobile
+ *  - Borders & center alignment preserved
  * ==============================================
  */
 export async function buildResidentialStatusSummaryWorkbook(
@@ -151,8 +135,10 @@ export async function buildResidentialStatusSummaryWorkbook(
   categories?: InventoryCategoryType[],
 ): Promise<ArrayBuffer> {
   const workbook = new ExcelJS.Workbook();
-  const ws = workbook.addWorksheet("Residential Status Summary");
+  // Force a full calc in apps that support it (harmless elsewhere)
+  workbook.calcProperties.fullCalcOnLoad = true;
 
+  const ws = workbook.addWorksheet("Residential Status Summary");
   const wingNames = (project.wings ?? []).map((w) => w.name);
 
   // Order map from categories
@@ -177,7 +163,7 @@ export async function buildResidentialStatusSummaryWorkbook(
         if (!s || IGNORE_STATUS.has(s)) continue;
         flat.push({
           wing: wing.name,
-          status: u.status!, // keep original case for display below
+          status: u.status!, // keep original case
           config: (u.configuration ?? "Unspecified").trim() || "Unspecified",
         });
       }
@@ -223,9 +209,7 @@ export async function buildResidentialStatusSummaryWorkbook(
   const totalCols = 1 + wingNames.length + 1;
   const lastColIndex = totalCols;
 
-  // =============
   // Top Title Bar
-  // =============
   ws.mergeCells(1, 1, 1, lastColIndex);
   setCell(ws, 1, 1, project.name || "Project Summary", {
     font: { bold: true, size: 16 },
@@ -245,9 +229,7 @@ export async function buildResidentialStatusSummaryWorkbook(
     { font: { bold: true }, alignment: ALIGN_CENTER },
   );
 
-  // ======
   // Header
-  // ======
   const headerRowIndex = 4;
   const header = ["Category / Config", ...wingNames, "Total Units"];
   ws.getRow(headerRowIndex).values = header;
@@ -257,36 +239,32 @@ export async function buildResidentialStatusSummaryWorkbook(
     alignment: ALIGN_CENTER,
   });
 
-  // =========
   // Data Rows
-  // =========
   let currentRow = headerRowIndex + 1; // starts at 5
   const statusRowIndices: number[] = []; // for bottom totals
+  const statusRowTotals: number[] = []; // cache totals per status row
 
   for (const status of statuses) {
     // STATUS ROW
-    setCell(ws, currentRow, 1, status, {
+    setCell(ws, currentRow, 1, status.toUpperCase(), {
       font: { bold: true },
       fill: FILL_STATUS,
       alignment: ALIGN_CENTER,
     });
 
     // Wing counts
+    let rowTotal = 0;
     wingNames.forEach((wingName, i) => {
-      setCell(
-        ws,
-        currentRow,
-        2 + i,
-        countsByStatusWing[status][wingName] ?? 0,
-        {
-          font: { bold: true },
-          fill: FILL_STATUS,
-          alignment: ALIGN_CENTER,
-        },
-      );
+      const v = countsByStatusWing[status][wingName] ?? 0;
+      rowTotal += v;
+      setCell(ws, currentRow, 2 + i, v, {
+        font: { bold: true },
+        fill: FILL_STATUS,
+        alignment: ALIGN_CENTER,
+      });
     });
 
-    // Row total (formula across wing columns)
+    // Row total: formula + cached result (shows on mobile)
     const firstWingColLetter = colLetter(2);
     const lastWingColLetter = colLetter(1 + wingNames.length);
     const sumRange = `${firstWingColLetter}${currentRow}:${lastWingColLetter}${currentRow}`;
@@ -294,7 +272,7 @@ export async function buildResidentialStatusSummaryWorkbook(
       ws,
       currentRow,
       lastColIndex,
-      { formula: `SUM(${sumRange})` },
+      { formula: `SUM(${sumRange})`, result: rowTotal },
       {
         font: { bold: true },
         fill: FILL_STATUS,
@@ -303,6 +281,7 @@ export async function buildResidentialStatusSummaryWorkbook(
     );
 
     statusRowIndices.push(currentRow);
+    statusRowTotals.push(rowTotal);
     currentRow++;
 
     // CONFIG ROWS (centered)
@@ -310,21 +289,21 @@ export async function buildResidentialStatusSummaryWorkbook(
     for (const cfg of configs) {
       setCell(ws, currentRow, 1, cfg, { alignment: ALIGN_CENTER });
 
-      let rowTotal = 0;
+      let cfgRowTotal = 0;
       wingNames.forEach((wingName, i) => {
         const v = configCounts[status][cfg][wingName] ?? 0;
+        cfgRowTotal += v;
         setCell(ws, currentRow, 2 + i, v, { alignment: ALIGN_CENTER });
-        rowTotal += v;
       });
 
-      setCell(ws, currentRow, lastColIndex, rowTotal, {
+      setCell(ws, currentRow, lastColIndex, cfgRowTotal, {
         alignment: ALIGN_CENTER,
       });
 
       currentRow++;
     }
 
-    // Spacer row (kept minimal, but it will still be bordered later)
+    // Spacer row
     setCell(ws, currentRow, 1, "");
     currentRow++;
   }
@@ -336,17 +315,22 @@ export async function buildResidentialStatusSummaryWorkbook(
     alignment: ALIGN_CENTER,
   });
 
-  // Per-wing totals (sum selected status rows)
+  // Per-wing totals (formula + cached result)
   for (let i = 0; i < wingNames.length; i++) {
     const colIndex = 2 + i; // B..?
     const refs = statusRowIndices
       .map((r) => `${colLetter(colIndex)}${r}`)
       .join(",");
+    // Compute cached total for this wing
+    let colTotal = 0;
+    for (const status of statuses) {
+      colTotal += countsByStatusWing[status][wingNames[i]] ?? 0;
+    }
     setCell(
       ws,
       totalRowIndex,
       colIndex,
-      { formula: `SUM(${refs})` },
+      { formula: `SUM(${refs})`, result: colTotal },
       {
         font: { bold: true },
         alignment: ALIGN_CENTER,
@@ -354,17 +338,20 @@ export async function buildResidentialStatusSummaryWorkbook(
     );
   }
 
-  // Grand Total (last col) — sum last col of status rows
+  // Grand Total (last col) — formula + cached result
   {
     const colIndex = lastColIndex;
     const refs = statusRowIndices
       .map((r) => `${colLetter(colIndex)}${r}`)
       .join(",");
+
+    const grandTotal = statusRowTotals.reduce((a, b) => a + b, 0);
+
     setCell(
       ws,
       totalRowIndex,
       colIndex,
-      { formula: `SUM(${refs})` },
+      { formula: `SUM(${refs})`, result: grandTotal },
       {
         font: { bold: true },
         alignment: ALIGN_CENTER,
@@ -372,20 +359,16 @@ export async function buildResidentialStatusSummaryWorkbook(
     );
   }
 
-  // ==============================
   // Global borders + global center
-  // ==============================
   const usedStartRow = headerRowIndex; // include header
   const usedEndRow = totalRowIndex; // through totals
   const usedStartCol = 1;
   const usedEndCol = lastColIndex;
 
-  // Center EVERYTHING in the used range
   styleRect(ws, usedStartRow, usedEndRow, usedStartCol, usedEndCol, {
     alignment: ALIGN_CENTER,
   });
 
-  // Add borders to EVERY used cell
   borderRect(
     ws,
     usedStartRow,
@@ -398,7 +381,7 @@ export async function buildResidentialStatusSummaryWorkbook(
   // Freeze panes (keep header visible)
   ws.views = [{ state: "frozen", xSplit: 1, ySplit: headerRowIndex }];
 
-  // Autosize columns (bounded) — no `any`
+  // Autosize columns (bounded)
   for (let c = 1; c <= lastColIndex; c++) {
     let max = 10;
     ws.eachRow({ includeEmpty: false }, (row) => {

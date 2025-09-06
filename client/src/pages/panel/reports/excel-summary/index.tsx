@@ -125,13 +125,11 @@ export function InventorySummaryExcelReport() {
         <div className="flex items-start justify-between">
           <FileSpreadsheet className="text-gray-500 h-5 w-5" />
           <span className="text-sm text-muted-foreground font-medium">
-            Excel
+            XLSX
           </span>
         </div>
-        <CardTitle className="mt-4">Inventory Status Summary</CardTitle>
-        <CardDescription>
-          Residential-only status counts per wing
-        </CardDescription>
+        <CardTitle className="mt-4">Inventory Summary</CardTitle>
+        <CardDescription>Inventory summary in XLSX format</CardDescription>
       </CardHeader>
 
       <CardContent className="flex-grow">
