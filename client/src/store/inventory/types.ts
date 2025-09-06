@@ -1,13 +1,3 @@
-export type unitStatus =
-  | "reserved"
-  | "available"
-  | "booked"
-  | "registered"
-  | "canceled"
-  | "investor"
-  | "not-for-sale"
-  | "others";
-
 export type projectStatus = "planning" | "under-construction" | "completed";
 export type commercialUnitPlacementType = "projectLevel" | "wingLevel";
 
@@ -62,7 +52,7 @@ export interface UnitType {
   area: number; // Square footage
   configuration: string; // 1BHK, 2BHK, 3BHK, Shop, Office, etc.
   unitSpan: number; // Number of base units this unit spans (default is 1)
-  status: unitStatus;
+  status: string;
   reservedByOrReason?: string; // Stores customer name or amenity reason for unavailability
   referenceId?: string; // Reference to customer who booked this unit
 }

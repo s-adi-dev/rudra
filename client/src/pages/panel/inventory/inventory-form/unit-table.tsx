@@ -17,9 +17,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { unitStatus, UnitType, WingType } from "@/store/inventory";
+import { InventoryCategoryType, useCategories } from "@/store/category";
+import { UnitType, WingType } from "@/store/inventory";
 import { Trash2 } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { HolderModal } from "./holder-modal";
 
 const residentialConfig = [
@@ -54,7 +55,7 @@ export const UnitTable = ({
   isCommercialUnit,
 }: UnitTableProps) => {
   const [isOpen, setIsOpen] = useState<number | boolean>(false);
-  const [newStatus, setNewStatus] = useState<unitStatus>();
+  const [newStatus, setNewStatus] = useState<string>();
   const [editingUnitSpans, setEditingUnitSpans] = useState<{
     [key: string]: string;
   }>({});
@@ -62,26 +63,33 @@ export const UnitTable = ({
   const configurations = isCommercialUnit
     ? commercialConfig
     : residentialConfig;
-  const statuses: unitStatus[] = [
-    "available",
-    "booked",
-    "registered",
-    "reserved",
-    "canceled",
-    "not-for-sale",
-    "investor",
-    "others",
-  ];
+
+  // ---- Dynamic statuses from Categories API
+  const { useCategoriesList } = useCategories();
+  const { data: categories = [], isLoading } = useCategoriesList();
+
+  // Keep sort consistent with backend: precedence asc, createdAt desc
+  const sortedCategories: InventoryCategoryType[] = useMemo(() => {
+    return [...categories].sort((a, b) => {
+      if (a.precedence !== b.precedence) return a.precedence - b.precedence;
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    });
+  }, [categories]);
+
+  const statusNameToLabel = useMemo(() => {
+    const map = new Map<string, string>();
+    sortedCategories.forEach((c) => map.set(c.name, c.displayName));
+    return map;
+  }, [sortedCategories]);
 
   // Generate a unique key for each unit span input
-  const getUnitSpanKey = (unitIndex: number) => {
-    return `${wingIndex}-${floorIndex}-${unitIndex}`;
-  };
+  const getUnitSpanKey = (unitIndex: number) =>
+    `${wingIndex}-${floorIndex}-${unitIndex}`;
 
-  function handleStatusChange(unitIndex: number, status: unitStatus) {
+  function handleStatusChange(unitIndex: number, status: string) {
     const currentStatus = units[unitIndex].status;
 
-    // If changing to available, update directly
+    // If changing to available, clear holder & update directly
     if (status === "available") {
       setNewStatus(undefined);
       setIsOpen(false);
@@ -95,11 +103,9 @@ export const UnitTable = ({
       setNewStatus(status);
       setIsOpen(unitIndex);
     }
-    // For any other change (not from available), update directly
+    // For other transitions, update directly
     else {
-      updateUnit(unitIndex, {
-        status: status,
-      });
+      updateUnit(unitIndex, { status });
     }
   }
 
@@ -129,9 +135,7 @@ export const UnitTable = ({
                   className="h-8 w-16 text-center"
                   value={unit.unitNumber}
                   onChange={(e) =>
-                    updateUnit(unitIndex, {
-                      unitNumber: e.target.value,
-                    })
+                    updateUnit(unitIndex, { unitNumber: e.target.value })
                   }
                 />
               </TableCell>
@@ -146,7 +150,6 @@ export const UnitTable = ({
                   }
                   onChange={(e) => {
                     const key = getUnitSpanKey(unitIndex);
-                    // Just update the editing state, not the actual data yet
                     setEditingUnitSpans({
                       ...editingUnitSpans,
                       [key]: e.target.value,
@@ -155,62 +158,38 @@ export const UnitTable = ({
                   onBlur={() => {
                     const key = getUnitSpanKey(unitIndex);
                     const inputValue = editingUnitSpans[key];
+                    const newEditing = { ...editingUnitSpans };
+                    delete newEditing[key];
+                    setEditingUnitSpans(newEditing);
 
-                    // On blur, we validate and commit the change
                     let newValue = parseInt(inputValue);
-
-                    // Clear the editing state
-                    const newEditingUnitSpans = {
-                      ...editingUnitSpans,
-                    };
-                    delete newEditingUnitSpans[key];
-                    setEditingUnitSpans(newEditingUnitSpans);
-
-                    // Ignore if not a valid number or no change
-                    if (isNaN(newValue) || newValue === unit.unitSpan) {
-                      return;
-                    }
-
-                    // Ensure at least 1
+                    if (isNaN(newValue) || newValue === unit.unitSpan) return;
                     if (newValue < 1) newValue = 1;
 
-                    // Calculate max available based on floor type (commercial or residential)
-                    let currentFloorUnits;
-
+                    let currentFloorUnits: UnitType[] = [];
                     if (isCommercialUnit && wings[wingIndex].commercialFloors) {
-                      // For commercial floors
                       currentFloorUnits =
                         wings[wingIndex].commercialFloors[floorIndex]?.units ||
                         [];
                     } else {
-                      // For residential floors
                       currentFloorUnits =
                         wings[wingIndex].floors[floorIndex]?.units || [];
                     }
 
-                    const otherUnitsSpan = currentFloorUnits.reduce(
-                      (total, u, idx) => {
-                        if (idx === unitIndex) return total;
-                        return total + (u.unitSpan || 1);
-                      },
-                      0,
-                    );
+                    const otherSpans = currentFloorUnits.reduce((t, u, idx) => {
+                      if (idx === unitIndex) return t;
+                      return t + (u.unitSpan || 1);
+                    }, 0);
 
                     const maxAvailable =
-                      wings[wingIndex].unitsPerFloor - otherUnitsSpan;
+                      wings[wingIndex].unitsPerFloor - otherSpans;
+                    if (newValue > maxAvailable) newValue = maxAvailable;
 
-                    // Cap at max available
-                    if (newValue > maxAvailable) {
-                      newValue = maxAvailable;
-                    }
-
-                    // Update the unit span
                     updateUnit(unitIndex, { unitSpan: newValue });
                   }}
                   onKeyDown={(e) => {
-                    if (e.key === "Enter") {
+                    if (e.key === "Enter")
                       (e.target as HTMLInputElement).blur();
-                    }
                   }}
                   min={1}
                 />
@@ -219,9 +198,7 @@ export const UnitTable = ({
                 <Select
                   value={unit.configuration}
                   onValueChange={(e) =>
-                    updateUnit(unitIndex, {
-                      configuration: e,
-                    })
+                    updateUnit(unitIndex, { configuration: e })
                   }
                 >
                   <SelectTrigger className="w-44">
@@ -230,8 +207,8 @@ export const UnitTable = ({
                   <SelectContent align="center">
                     <SelectGroup>
                       <SelectLabel>Configurations</SelectLabel>
-                      {configurations.map((config, index) => (
-                        <SelectItem value={config} key={index}>
+                      {configurations.map((config) => (
+                        <SelectItem value={config} key={config}>
                           {config.toUpperCase()}
                         </SelectItem>
                       ))}
@@ -245,29 +222,31 @@ export const UnitTable = ({
                   value={isNaN(unit.area) ? "" : unit.area}
                   type="number"
                   onChange={(e) =>
-                    updateUnit(unitIndex, {
-                      area: parseInt(e.target.value),
-                    })
+                    updateUnit(unitIndex, { area: parseInt(e.target.value) })
                   }
                 />
               </TableCell>
 
               <TableCell align="center">
                 <Select
-                  value={unit.status}
-                  onValueChange={(e) =>
-                    handleStatusChange(unitIndex, e as unitStatus)
+                  // If current value isn't in categories yet (loading/race), show empty till loaded
+                  value={
+                    statusNameToLabel.has(unit.status) ? unit.status : undefined
                   }
+                  onValueChange={(e) => handleStatusChange(unitIndex, e)}
+                  disabled={isLoading || sortedCategories.length === 0}
                 >
                   <SelectTrigger className="w-36">
-                    <SelectValue placeholder="Select Status" />
+                    <SelectValue
+                      placeholder={isLoading ? "Loading…" : "Select Status"}
+                    />
                   </SelectTrigger>
                   <SelectContent align="center">
                     <SelectGroup>
                       <SelectLabel>Unit Status</SelectLabel>
-                      {statuses.map((status, index) => (
-                        <SelectItem value={status} key={index}>
-                          {status.toUpperCase()}
+                      {sortedCategories.map((cat) => (
+                        <SelectItem value={cat.name} key={cat._id}>
+                          {cat.displayName.toUpperCase()}
                         </SelectItem>
                       ))}
                     </SelectGroup>

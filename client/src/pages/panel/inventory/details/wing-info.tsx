@@ -36,26 +36,66 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { hasPermission } from "@/hooks/use-role";
-import { toast } from "@/hooks/use-toast";
+import { toast, useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/store/auth";
-import {
-  FloorType,
-  unitStatus,
-  UnitType,
-  useInventory,
-  WingType,
-} from "@/store/inventory";
+import { InventoryCategoryType, useCategories } from "@/store/category";
+import { useUpdateClientBooking } from "@/store/client-booking/query";
+import { UnitType, WingType, useInventory } from "@/store/inventory";
 import { capitalizeWords } from "@/utils/func/strUtils";
 import { CustomAxiosError } from "@/utils/types/axios";
 import { MoreHorizontalIcon } from "lucide-react";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 
-interface WingInfoProps {
-  wings: WingType[];
-}
+/** ------------------------
+ *  UTILITIES
+ *  ------------------------ */
+const hexToRgb = (hex: string) => {
+  const clean = hex.replace("#", "");
+  const bigint = parseInt(clean, 16);
+  const r = (bigint >> 16) & 255;
+  const g = (bigint >> 8) & 255;
+  const b = bigint & 255;
+  return { r, g, b };
+};
 
-export const WingInfo = ({ wings }: WingInfoProps) => {
+const idealTextColor = (bgHex: string) => {
+  try {
+    const { r, g, b } = hexToRgb(bgHex);
+    // YIQ contrast
+    const yiq = (r * 299 + g * 587 + b * 114) / 1000;
+    return yiq >= 128 ? "#111827" /* slate-900 */ : "#F8FAFC" /* slate-50 */;
+  } catch {
+    return "#111827";
+  }
+};
+
+/** Count units matching a given status */
+const countUnitsBy = (units: UnitType[], statusName: string) =>
+  units.filter((u) => u.status === statusName).length;
+
+/** ------------------------
+ *  TOP-LEVEL: WingInfo
+ *  ------------------------ */
+export const WingInfo = ({ wings }: { wings: WingType[] }) => {
   const [activeWingIndex, setActiveWingIndex] = useState(0);
+
+  // Fetch categories once and memoize sorted by precedence asc, createdAt desc
+  const { useCategoriesList } = useCategories();
+  const { data: categories = [] } = useCategoriesList();
+
+  const sortedCategories = useMemo(() => {
+    return [...categories].sort((a, b) => {
+      if (a.precedence !== b.precedence) return a.precedence - b.precedence;
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    });
+  }, [categories]);
+
+  // Helpers derived from categories
+  const othersKey = useMemo(
+    () => sortedCategories.find((c) => c.name === "others")?.name,
+    [sortedCategories],
+  );
+
   return (
     <div className="space-y-6 mt-6 pt-6 border-t">
       <h3 className="text-lg font-medium">Wing Information</h3>
@@ -63,14 +103,8 @@ export const WingInfo = ({ wings }: WingInfoProps) => {
         <>
           {wings.length > 1 ? (
             <Tabs
-              defaultValue={
-                activeWingIndex !== null ? activeWingIndex.toString() : "0"
-              }
-              value={
-                activeWingIndex !== null
-                  ? activeWingIndex.toString()
-                  : undefined
-              }
+              defaultValue={activeWingIndex.toString()}
+              value={activeWingIndex.toString()}
               onValueChange={(value) => setActiveWingIndex(parseInt(value))}
               className="w-full"
             >
@@ -84,12 +118,20 @@ export const WingInfo = ({ wings }: WingInfoProps) => {
 
               {wings.map((wing, wingIndex) => (
                 <TabsContent key={wingIndex} value={wingIndex.toString()}>
-                  <WingCard wing={wing} />
+                  <WingCard
+                    wing={wing}
+                    categories={sortedCategories}
+                    othersKey={othersKey}
+                  />
                 </TabsContent>
               ))}
             </Tabs>
           ) : (
-            <WingCard wing={wings[0]} />
+            <WingCard
+              wing={wings[0]}
+              categories={sortedCategories}
+              othersKey={othersKey}
+            />
           )}
         </>
       ) : (
@@ -99,41 +141,40 @@ export const WingInfo = ({ wings }: WingInfoProps) => {
   );
 };
 
-// Utility functions extracted to be reused
-const getUnitTotal = (floor: FloorType, status: unitStatus) => {
-  return floor.units.filter((unit) => unit.status === status).length;
-};
-
-const getOverallTotal = (wing: WingType, status: unitStatus) => {
-  return wing.floors.reduce((total, floor) => {
-    return total + floor.units.filter((unit) => unit.status === status).length;
-  }, 0);
-};
-
-// 1. FloorTable Component - Handles the floor table display and expandable rows
-function FloorTable({ wing }: { wing: WingType }) {
+/** ------------------------
+ *  Floor Table (dynamic columns)
+ *  ------------------------ */
+function FloorTable({
+  wing,
+  categories,
+  othersKey,
+}: {
+  wing: WingType;
+  categories: InventoryCategoryType[];
+  othersKey?: string;
+}) {
   const [openItems, setOpenItems] = useState<Record<string, boolean>>({});
   const [heights, setHeights] = useState<Record<string, number>>({});
   const contentRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   const toggleItem = (id: string) => {
-    setOpenItems((prev) => ({
-      // Uncomment the line below to allow multiple rows to be open simultaneously
-      // ...prev,
-      [id]: !prev[id],
-    }));
+    setOpenItems({ [id]: !openItems[id] });
   };
 
   useEffect(() => {
     const newHeights: Record<string, number> = {};
     Object.keys(contentRefs.current).forEach((id) => {
       const element = contentRefs.current[id];
-      if (element) {
-        newHeights[id] = element.scrollHeight;
-      }
+      if (element) newHeights[id] = element.scrollHeight;
     });
     setHeights(newHeights);
   }, [wing.floors]);
+
+  const totalUnitsExcludingOthers = (units: UnitType[]) =>
+    units.length - (othersKey ? countUnitsBy(units, othersKey) : 0);
+
+  const wingTotalsBy = (statusName: string) =>
+    wing.floors.reduce((acc, f) => acc + countUnitsBy(f.units, statusName), 0);
 
   return (
     <div className="border rounded-md overflow-auto">
@@ -147,78 +188,66 @@ function FloorTable({ wing }: { wing: WingType }) {
             <TableHead className="text-center whitespace-nowrap">
               Total Units
             </TableHead>
-            <TableHead className="text-center">Available</TableHead>
-            <TableHead className="text-center">Reserved</TableHead>
-            <TableHead className="text-center">Booked</TableHead>
-            <TableHead className="text-center">Registered</TableHead>
-            <TableHead className="text-center">Investor</TableHead>
-            <TableHead className="text-center">Canceled</TableHead>
-            <TableHead className="text-center whitespace-nowrap">
-              Not For Sale
-            </TableHead>
+            {categories.map((cat) => (
+              <TableHead
+                key={cat._id}
+                className="text-center whitespace-nowrap"
+              >
+                {cat.displayName}
+              </TableHead>
+            ))}
           </TableRow>
         </TableHeader>
         <TableBody>
-          {wing.floors &&
-            wing.floors.map((floor) => {
-              const floorId = floor.displayNumber.toString();
-              const isOpen = openItems[floorId] || false;
+          {wing.floors?.map((floor) => {
+            const floorId = floor.displayNumber.toString();
+            const isOpen = openItems[floorId] || false;
 
-              return (
-                <React.Fragment key={floorId}>
-                  <TableRow
-                    className={`transition-colors duration-200 cursor-pointer ${isOpen ? "bg-muted/30" : ""}`}
-                    onClick={() => toggleItem(floorId)}
+            return (
+              <React.Fragment key={floorId}>
+                <TableRow
+                  className={`transition-colors duration-200 cursor-pointer ${isOpen ? "bg-muted/30" : ""}`}
+                  onClick={() => toggleItem(floorId)}
+                >
+                  <TableCell className="text-center">
+                    {floor.displayNumber}
+                  </TableCell>
+                  <TableCell className="text-center">{floor.type}</TableCell>
+                  <TableCell className="text-center">
+                    {totalUnitsExcludingOthers(floor.units)}
+                  </TableCell>
+                  {categories.map((cat) => (
+                    <TableCell key={cat._id} className="text-center">
+                      {countUnitsBy(floor.units, cat.name)}
+                    </TableCell>
+                  ))}
+                </TableRow>
+
+                <TableRow className="hover:bg-card expandable-row">
+                  <TableCell
+                    colSpan={3 + categories.length}
+                    className="p-0 border-b border-t-0"
                   >
-                    <TableCell className="text-center">
-                      {floor.displayNumber}
-                    </TableCell>
-                    <TableCell className="text-center">{floor.type}</TableCell>
-                    <TableCell className="text-center">
-                      {floor.units.length - getUnitTotal(floor, "others")}
-                    </TableCell>
-                    <TableCell className="text-center">
-                      {getUnitTotal(floor, "available")}
-                    </TableCell>
-                    <TableCell className="text-center">
-                      {getUnitTotal(floor, "reserved")}
-                    </TableCell>
-                    <TableCell className="text-center">
-                      {getUnitTotal(floor, "booked")}
-                    </TableCell>
-                    <TableCell className="text-center">
-                      {getUnitTotal(floor, "registered")}
-                    </TableCell>
-                    <TableCell className="text-center">
-                      {getUnitTotal(floor, "investor")}
-                    </TableCell>
-                    <TableCell className="text-center">
-                      {getUnitTotal(floor, "canceled")}
-                    </TableCell>
-                    <TableCell className="text-center">
-                      {getUnitTotal(floor, "not-for-sale")}
-                    </TableCell>
-                  </TableRow>
-
-                  <TableRow className="hover:bg-card expandable-row">
-                    <TableCell colSpan={10} className="p-0 border-b border-t-0">
-                      <div
-                        style={{
-                          height: isOpen ? `${heights[floorId] || 0}px` : "0px",
-                          opacity: isOpen ? 1 : 0,
-                          overflow: "hidden",
-                          transition: "height 0.3s ease, opacity 0.3s ease",
-                        }}
-                      >
-                        <div ref={(e) => (contentRefs.current[floorId] = e)}>
-                          <UnitTable units={floor.units} />
-                        </div>
+                    <div
+                      style={{
+                        height: isOpen ? `${heights[floorId] || 0}px` : "0px",
+                        opacity: isOpen ? 1 : 0,
+                        overflow: "hidden",
+                        transition: "height 0.3s ease, opacity 0.3s ease",
+                      }}
+                    >
+                      <div ref={(e) => (contentRefs.current[floorId] = e)}>
+                        <UnitTable
+                          units={floor.units}
+                          categories={categories}
+                        />
                       </div>
-                    </TableCell>
-                  </TableRow>
-                </React.Fragment>
-              );
-            })}
+                    </div>
+                  </TableCell>
+                </TableRow>
+              </React.Fragment>
+            );
+          })}
         </TableBody>
         <TableFooter>
           <TableRow className="bg-card hover:bg-card sticky bottom-0 z-20">
@@ -227,31 +256,16 @@ function FloorTable({ wing }: { wing: WingType }) {
             </TableCell>
             <TableCell className="text-center font-medium">
               {wing.floors.reduce(
-                (total, floor) => total + floor.units.length,
+                (total, floor) =>
+                  total + totalUnitsExcludingOthers(floor.units),
                 0,
-              ) - getOverallTotal(wing, "others")}
+              )}
             </TableCell>
-            <TableCell className="text-center font-medium">
-              {getOverallTotal(wing, "available")}
-            </TableCell>
-            <TableCell className="text-center font-medium">
-              {getOverallTotal(wing, "reserved")}
-            </TableCell>
-            <TableCell className="text-center font-medium">
-              {getOverallTotal(wing, "booked")}
-            </TableCell>
-            <TableCell className="text-center font-medium">
-              {getOverallTotal(wing, "registered")}
-            </TableCell>
-            <TableCell className="text-center font-medium">
-              {getOverallTotal(wing, "investor")}
-            </TableCell>
-            <TableCell className="text-center font-medium">
-              {getOverallTotal(wing, "canceled")}
-            </TableCell>
-            <TableCell className="text-center font-medium">
-              {getOverallTotal(wing, "not-for-sale")}
-            </TableCell>
+            {categories.map((cat) => (
+              <TableCell key={cat._id} className="text-center font-medium">
+                {wingTotalsBy(cat.name)}
+              </TableCell>
+            ))}
           </TableRow>
         </TableFooter>
       </table>
@@ -259,13 +273,19 @@ function FloorTable({ wing }: { wing: WingType }) {
   );
 }
 
-// 2. WingCard Component - Now simplified to use the FloorTable component
+/** ------------------------
+ *  WingCard
+ *  ------------------------ */
 function WingCard({
   wing,
   isEditable = false,
+  categories,
+  othersKey,
 }: {
   wing: WingType;
   isEditable?: boolean;
+  categories: InventoryCategoryType[];
+  othersKey?: string;
 }) {
   return (
     <Card>
@@ -275,10 +295,7 @@ function WingCard({
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <div
-          className="grid grid-cols-1 lg:grid-cols-3 gap-6"
-          style={{ marginBottom: "1.5rem" }}
-        >
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
           <FormFieldWrapper
             LabelText="Wing Name"
             Important={isEditable}
@@ -321,47 +338,22 @@ function WingCard({
             />
           </FormFieldWrapper>
         </div>
-
-        {/* Use the FloorTable component here */}
-        <FloorTable wing={wing} />
+        <FloorTable wing={wing} categories={categories} othersKey={othersKey} />
       </CardContent>
     </Card>
   );
 }
 
-const getStatusColor = (status: unitStatus) => {
-  switch (status) {
-    case "canceled":
-      return "bg-destructive text-destructive-foreground hover:bg-destructive";
-    case "not-for-sale":
-      return "bg-orange-300 text-orange-600 hover:bg-orange-300";
-    case "others":
-      return "bg-gray-600 text-gray-100 hover:bg-gray-600";
-    case "investor":
-      return "bg-blue-600 text-slate-50 hover:bg-blue-600";
-    case "reserved":
-      return "bg-yellow-100 text-yellow-600 hover:bg-yellow-100";
-    case "booked":
-      return "bg-yellow-300/90 text-yellow-700 hover:bg-yellow-300/90";
-    case "registered":
-      return "bg-green-700 text-slate-50 hover:bg-green-700";
-    case "available":
-      return;
-    default:
-      return;
-  }
-};
-
-type unitDataType = {
-  _id: string;
-  unitNo: string;
-  area: number;
-  configuration: string;
-  status: unitStatus;
-  reservedByOrReason?: string;
-};
-
-function UnitTable({ units }: { units: UnitType[] }) {
+/** ------------------------
+ *  UnitTable (dynamic badge colors & actions)
+ *  ------------------------ */
+function UnitTable({
+  units,
+  categories,
+}: {
+  units: UnitType[];
+  categories: InventoryCategoryType[];
+}) {
   const [isStatusOpen, setIsStatusOpen] = useState(false);
   const [isUpdateOpen, setIsUpdateOpen] = useState(false);
   const [selectedUnitData, setSelectedUnitData] = useState<unitDataType>({
@@ -371,6 +363,7 @@ function UnitTable({ units }: { units: UnitType[] }) {
     unitNo: "",
     status: "available",
   });
+
   const { combinedRole } = useAuth(true);
   const updateUnitStatus = hasPermission(
     combinedRole,
@@ -378,8 +371,13 @@ function UnitTable({ units }: { units: UnitType[] }) {
     "update-unit-status",
   );
   const updateUnit = hasPermission(combinedRole, "Inventory", "update-unit");
-
   const hasPerms = updateUnit || updateUnitStatus;
+
+  const colorByStatus = useMemo(() => {
+    const map = new Map<string, string>();
+    categories.forEach((c) => map.set(c.name, c.colorHex));
+    return map;
+  }, [categories]);
 
   const handleSetUpdate = (data: unitDataType) => {
     setSelectedUnitData(data);
@@ -409,73 +407,80 @@ function UnitTable({ units }: { units: UnitType[] }) {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {units.map((unit, index) => (
-            <TableRow key={index} className="hover:bg-card">
-              <TableCell className="text-center font-medium">
-                {unit.unitNumber}
-              </TableCell>
-              <TableCell className="text-center font-medium">
-                {unit.configuration.toUpperCase()}
-              </TableCell>
-              <TableCell className="text-center font-medium">
-                {unit.area} sqft.
-              </TableCell>
-              <TableCell className="text-center font-medium">
-                {unit.reservedByOrReason || "N/A"}
-              </TableCell>
-              <TableCell className="text-center font-medium">
-                <Badge className={`${getStatusColor(unit.status)}`}>
-                  {unit.status.toUpperCase().replace(/-/g, " ")}
-                </Badge>
-              </TableCell>
-              {hasPerms && (
+          {units.map((unit, index) => {
+            const bg = colorByStatus.get(unit.status);
+            const style = bg
+              ? { backgroundColor: bg, color: idealTextColor(bg) }
+              : undefined;
+            return (
+              <TableRow key={index} className="hover:bg-card">
                 <TableCell className="text-center font-medium">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="secondary" size="miniIcon">
-                        <MoreHorizontalIcon />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent>
-                      <DropdownMenuLabel>Unit Options</DropdownMenuLabel>
-                      {updateUnit && (
-                        <DropdownMenuItem
-                          onClick={() =>
-                            handleSetUpdate({
-                              _id: unit._id!,
-                              area: unit.area,
-                              configuration: unit.configuration,
-                              status: unit.status,
-                              unitNo: unit.unitNumber,
-                              reservedByOrReason: unit.reservedByOrReason,
-                            })
-                          }
-                        >
-                          Update Unit
-                        </DropdownMenuItem>
-                      )}
-                      {updateUnitStatus && (
-                        <DropdownMenuItem
-                          onClick={() =>
-                            handleSetStatus({
-                              _id: unit._id!,
-                              area: unit.area,
-                              configuration: unit.configuration,
-                              status: unit.status,
-                              unitNo: unit.unitNumber,
-                              reservedByOrReason: unit.reservedByOrReason,
-                            })
-                          }
-                        >
-                          Change Status
-                        </DropdownMenuItem>
-                      )}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                  {unit.unitNumber}
                 </TableCell>
-              )}
-            </TableRow>
-          ))}
+                <TableCell className="text-center font-medium">
+                  {unit.configuration.toUpperCase()}
+                </TableCell>
+                <TableCell className="text-center font-medium">
+                  {unit.area} sqft.
+                </TableCell>
+                <TableCell className="text-center font-medium">
+                  {unit.reservedByOrReason || "N/A"}
+                </TableCell>
+                <TableCell className="text-center font-medium">
+                  <Badge style={style}>
+                    {unit.status.toUpperCase().replace(/-/g, " ")}
+                  </Badge>
+                </TableCell>
+                {hasPerms && (
+                  <TableCell className="text-center font-medium">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="secondary" size="miniIcon">
+                          <MoreHorizontalIcon />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent>
+                        <DropdownMenuLabel>Unit Options</DropdownMenuLabel>
+                        {updateUnit && (
+                          <DropdownMenuItem
+                            onClick={() =>
+                              handleSetUpdate({
+                                _id: unit._id!,
+                                area: unit.area,
+                                configuration: unit.configuration,
+                                status: unit.status,
+                                unitNo: unit.unitNumber,
+                                reservedByOrReason: unit.reservedByOrReason,
+                              })
+                            }
+                          >
+                            Update Unit
+                          </DropdownMenuItem>
+                        )}
+                        {updateUnitStatus && (
+                          <DropdownMenuItem
+                            onClick={() =>
+                              handleSetStatus({
+                                _id: unit._id!,
+                                area: unit.area,
+                                configuration: unit.configuration,
+                                status: unit.status,
+                                unitNo: unit.unitNumber,
+                                reservedByOrReason: unit.reservedByOrReason,
+                                referenceId: unit.referenceId,
+                              })
+                            }
+                          >
+                            Change Status
+                          </DropdownMenuItem>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </TableCell>
+                )}
+              </TableRow>
+            );
+          })}
         </TableBody>
       </Table>
       <UnitUpdateForm
@@ -489,41 +494,131 @@ function UnitTable({ units }: { units: UnitType[] }) {
         onOpenChange={setIsStatusOpen}
         unitData={selectedUnitData}
         setUnitData={setSelectedUnitData}
+        categories={categories}
       />
     </>
   );
 }
 
+/** ------------------------
+ *  Unit status modal (dynamic options)
+ *  ------------------------ */
 function UnitStatusModal({
   open,
   onOpenChange,
   unitData,
   setUnitData,
+  categories,
 }: {
   open: boolean;
   onOpenChange: (isOpen: boolean) => void;
   unitData: unitDataType;
   setUnitData: (data: unitDataType) => void;
+  categories: InventoryCategoryType[];
 }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const { updateUnitStatusMutation } = useInventory();
+  const { toast } = useToast();
 
-  const handleCancel = () => {
-    onOpenChange(false);
+  const confirm = useAlertDialog({
+    alertType: "Danger",
+    iconName: "TicketX",
+    title: "Cancel Booking",
+    description: "Are you sure you want to cancel this booking?",
+    actionLabel: "Confirm",
+    cancelLabel: "Back",
+  });
+
+  const { updateUnitStatusMutation } = useInventory();
+  const updateClientBookingMutation = useUpdateClientBooking();
+
+  const handlePlainUpdate = async () => {
+    // unchanged path for statuses other than "canceled"
+    await updateUnitStatusMutation.mutateAsync({
+      unitId: unitData._id,
+      status: unitData.status,
+      reservedByOrReason: unitData.reservedByOrReason,
+    });
+    toast({
+      title: "Status Updated",
+      description: `Unit ${unitData.unitNo} marked as ${unitData.status}.`,
+    });
   };
 
-  const handleSubmit = async () => {
-    try {
-      setIsSubmitting(true);
-      onOpenChange(false);
-      await updateUnitStatusMutation.mutateAsync({
-        unitId: unitData._id,
-        status: unitData.status,
-        reservedByOrReason: unitData.reservedByOrReason,
+  const handleCancelFlow = async () => {
+    // mirror CancellationForm (no PDF)
+    // 1) inventory → canceled
+    await updateUnitStatusMutation.mutateAsync({
+      unitId: unitData._id,
+      status: "canceled",
+      reservedByOrReason: unitData.reservedByOrReason,
+    });
+    // 2) client booking → canceled (if we know it)
+    if (unitData.referenceId) {
+      await updateClientBookingMutation.mutateAsync({
+        id: unitData.referenceId,
+        updateData: { status: "canceled" },
       });
+    }
+    toast({
+      title: "Booking Canceled",
+      description: `Unit ${unitData.unitNo} booking has been canceled.`,
+    });
+  };
+
+  const submit = async () => {
+    try {
+      // basic validation parity with your cancel form
+      if (
+        unitData.status !== "available" &&
+        !unitData.reservedByOrReason?.trim()
+      ) {
+        toast({
+          title: "Missing Holder",
+          description: "Please enter the holder's name.",
+          variant: "warning",
+        });
+        return;
+      }
+
+      setIsSubmitting(true);
+
+      if (unitData.status === "canceled") {
+        // show the same confirm dialog language as cancel form
+        confirm.show({
+          config: {
+            description: `You are about to cancel the booking for ${unitData.reservedByOrReason || "this unit"}. Do you want to proceed?`,
+          },
+          onAction: async () => {
+            try {
+              onOpenChange(false);
+              await handleCancelFlow();
+            } catch (error) {
+              const err = error as CustomAxiosError;
+              toast({
+                title: "Error Occurred",
+                description:
+                  err.response?.data.error ||
+                  err.message ||
+                  "Failed to cancel the booking! An unknown error occurred.",
+                variant: "destructive",
+              });
+            } finally {
+              setIsSubmitting(false);
+            }
+          },
+        });
+      } else {
+        onOpenChange(false);
+        await handlePlainUpdate();
+        setIsSubmitting(false);
+      }
     } catch (error) {
-      console.error("Failed to update unit status:", error);
-    } finally {
+      const err = error as CustomAxiosError;
+      toast({
+        title: "Error Occurred",
+        description: err.response?.data.error || "Failed to update unit status",
+        variant: "destructive",
+      });
       setIsSubmitting(false);
     }
   };
@@ -536,6 +631,7 @@ function UnitStatusModal({
             Unit Status - {unitData.unitNo}
           </DialogTitle>
         </DialogHeader>
+
         <div className="mt-4 space-y-6">
           <FormFieldWrapper
             LabelText="Unit Status"
@@ -545,30 +641,31 @@ function UnitStatusModal({
           >
             <Select
               value={unitData.status}
-              onValueChange={(e) =>
-                setUnitData({ ...unitData, status: e as unitStatus })
-              }
+              onValueChange={(e) => {
+                // if switching to available, clear holder
+                const next: unitDataType = { ...unitData, status: e };
+                if (e === "available") next.reservedByOrReason = "";
+                setUnitData(next);
+              }}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Select Status" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="available">Available</SelectItem>
-                <SelectItem value="booked">Booked</SelectItem>
-                <SelectItem value="registered">Registered</SelectItem>
-                <SelectItem value="reserved">Reserved</SelectItem>
-                <SelectItem value="investor">Investor</SelectItem>
-                <SelectItem value="not-for-sale">Not For Sale</SelectItem>
-                <SelectItem value="others">Others</SelectItem>
-                <SelectItem value="canceled">Canceled</SelectItem>
+                {categories.map((c) => (
+                  <SelectItem key={c._id} value={c.name}>
+                    {c.displayName}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </FormFieldWrapper>
+
           {unitData.status !== "available" && (
             <FormFieldWrapper
+              LabelText="Holder Name"
               Important
               ImportantSide="right"
-              LabelText="Holder Name"
               className="gap-2"
             >
               <Input
@@ -584,23 +681,33 @@ function UnitStatusModal({
             </FormFieldWrapper>
           )}
         </div>
+
         <DialogFooter>
           <Button
             variant="outline"
-            onClick={handleCancel}
+            onClick={() => onOpenChange(false)}
             disabled={isSubmitting}
           >
-            Cancel
+            Close
           </Button>
-          <Button onClick={handleSubmit} disabled={isSubmitting}>
-            {isSubmitting ? "Submitting..." : "Submit"}
+          <Button onClick={submit} disabled={isSubmitting}>
+            {isSubmitting
+              ? "Submitting..."
+              : unitData.status === "canceled"
+                ? "Cancel Booking"
+                : "Submit"}
           </Button>
         </DialogFooter>
+
+        <confirm.AlertDialog />
       </DialogContent>
     </Dialog>
   );
 }
 
+/** ------------------------
+ *  Unit update form (unchanged except for imports/types)
+ *  ------------------------ */
 function UnitUpdateForm({
   open,
   onOpenChange,
@@ -621,9 +728,7 @@ function UnitUpdateForm({
     iconName: "CircleFadingArrowUp",
   });
 
-  const handleCancel = () => {
-    onOpenChange(false);
-  };
+  const handleCancel = () => onOpenChange(false);
 
   const handleSubmit = async () => {
     dialog.show({
@@ -752,3 +857,16 @@ function UnitUpdateForm({
     </>
   );
 }
+
+/** ------------------------
+ *  Types used locally
+ *  ------------------------ */
+export type unitDataType = {
+  _id: string;
+  unitNo: string;
+  area: number;
+  configuration: string;
+  status: string;
+  reservedByOrReason?: string;
+  referenceId?: string;
+};

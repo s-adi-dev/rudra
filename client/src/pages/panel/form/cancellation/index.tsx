@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { useUpdateClientBooking } from "@/store/client-booking/query";
-import { unitStatus, UnitType, useInventory } from "@/store/inventory";
+import { UnitType, useInventory } from "@/store/inventory";
 import { getOrdinal } from "@/utils/func/numberUtils";
 import { toProperCase } from "@/utils/func/strUtils";
 import { CustomAxiosError } from "@/utils/types/axios";
@@ -94,7 +94,7 @@ export const CancellationForm = () => {
 
   // Helper Functions
   const getFilteredProjectsData = () => {
-    const flatStatusFilter: unitStatus[] = ["booked", "registered", "investor"];
+    const flatStatusFilter: string[] = ["booked", "registered", "investor"];
     if (!projectsData?.data) return [];
 
     return projectsData.data

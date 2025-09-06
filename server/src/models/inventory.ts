@@ -1,16 +1,6 @@
 import mongoose, { Document, Schema, Types } from "mongoose";
 
 // Types
-export type UnitStatus =
-  | "reserved"
-  | "available"
-  | "booked"
-  | "registered"
-  | "canceled"
-  | "investor"
-  | "not-for-sale"
-  | "others";
-
 export interface UnitType extends Document {
   _id: Types.ObjectId;
   floorId: Types.ObjectId;
@@ -18,7 +8,7 @@ export interface UnitType extends Document {
   area: number;
   configuration: string;
   unitSpan: number;
-  status: UnitStatus;
+  status: string;
   reservedByOrReason?: string;
   referenceId?: Types.ObjectId;
 }
@@ -89,16 +79,6 @@ const UnitSchema = new Schema<UnitType>(
     },
     status: {
       type: String,
-      enum: [
-        "reserved",
-        "available",
-        "booked",
-        "registered",
-        "canceled",
-        "investor",
-        "not-for-sale",
-        "others",
-      ],
       required: true,
       index: true,
     },

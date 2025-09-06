@@ -2,7 +2,8 @@ import RobotoBold from "@/fonts/roboto/Roboto-Bold.ttf";
 import RobotoBoldItalic from "@/fonts/roboto/Roboto-BoldItalic.ttf";
 import RobotoItalic from "@/fonts/roboto/Roboto-Italic.ttf";
 import RobotoRegular from "@/fonts/roboto/Roboto-Regular.ttf";
-import { FloorType, ProjectType, UnitType, WingType } from "@/store/inventory";
+import { InventoryCategoryType } from "@/store/category";
+import { FloorType, ProjectType, WingType } from "@/store/inventory";
 import { getOrdinal } from "@/utils/func/numberUtils";
 import { capitalizeWords } from "@/utils/func/strUtils";
 import {
@@ -16,28 +17,14 @@ import {
 import _ from "lodash";
 import React, { useMemo } from "react";
 
-// Define status types for better type safety
-type UnitStatus = UnitType["status"];
+/**
+ * AVAILABILITY PDF – DYNAMIC STATUS COLORS/LEGEND (from /category)
+ * ---------------------------------------------------------------
+ * This version accepts `categories` via props (no React Query hooks here),
+ * so it works with @react-pdf/renderer.
+ */
 
-// Status configuration with colors and display names
-const STATUS_CONFIG: Record<
-  UnitStatus,
-  { color: string; displayName: string }
-> = {
-  available: { color: "#ffffff", displayName: "Available" },
-  reserved: { color: "#fff085", displayName: "Reserved" },
-  booked: { color: "#ffba00", displayName: "Booked" },
-  registered: { color: "#bbf451", displayName: "Registered" },
-  canceled: { color: "#fb2c36", displayName: "Canceled" },
-  "not-for-sale": { color: "#f5a97f", displayName: "Not For Sale" },
-  investor: { color: "#8aadf4", displayName: "Investor" },
-  others: { color: "#c4c4c4", displayName: "Others" },
-};
-
-// Extract status list from config for consistency
-const STATUSES = Object.keys(STATUS_CONFIG) as UnitStatus[];
-
-// Register all fonts at once for better performance
+// Register fonts
 Font.register({
   family: "Roboto",
   fonts: [
@@ -48,21 +35,18 @@ Font.register({
   ],
 });
 
-// Constants for better maintenance and flexibility
+// Layout constants
 const CONSTANTS = {
-  // A4 dimensions
-  A4_WIDTH: 595, // Portrait width in points
-  A4_HEIGHT: 842, // Portrait height in points
+  A4_WIDTH: 595,
+  A4_HEIGHT: 842,
   PAGE_PADDING: 20,
   FLOOR_CELL_WIDTH: 40,
   FLOORS_PER_PAGE_PORTRAIT: 16,
-  FLOORS_PER_PAGE_LANDSCAPE: 11, // Less due to shorter page height in landscape
-  UNIT_THRESHOLD: 10, // Threshold for switching to landscape
+  FLOORS_PER_PAGE_LANDSCAPE: 11,
+  UNIT_THRESHOLD: 10,
 };
 
-// Define PDF styles with improved organization
 const styles = StyleSheet.create({
-  // Layout
   page: {
     padding: CONSTANTS.PAGE_PADDING,
     backgroundColor: "#ffffff",
@@ -203,13 +187,11 @@ const styles = StyleSheet.create({
     backgroundColor: "#8ec5ff",
   },
   bgCommercial: {
-    backgroundColor: "#ffb347", // Orange color for commercial section
+    backgroundColor: "#ffb347",
   },
-
-  // Commercial header
   commercialHeaderCell: {
     padding: 3,
-    backgroundColor: "#ffb347", // Orange color for commercial header
+    backgroundColor: "#ffb347",
     fontWeight: "bold",
     textAlign: "center",
     borderRightWidth: 1,
@@ -219,33 +201,21 @@ const styles = StyleSheet.create({
   },
 });
 
-/**
- * Determine if wing should use landscape orientation
- */
-const shouldUseLandscape = (wing: WingType): boolean => {
-  // Find the floor with the most units
-  const maxUnits = wing.unitsPerFloor;
-  return maxUnits > CONSTANTS.UNIT_THRESHOLD;
-};
+// Orientation helpers
+const shouldUseLandscape = (wing: WingType): boolean =>
+  wing.unitsPerFloor > CONSTANTS.UNIT_THRESHOLD;
 
-/**
- * Determine if commercial floors should use landscape orientation
- */
 const shouldCommercialUseLandscape = (floors: FloorType[]): boolean => {
-  // Find the floor with the most units
   const maxUnits = Math.max(...floors.map((floor) => floor.units.length), 0);
   return maxUnits > CONSTANTS.UNIT_THRESHOLD;
 };
 
-/**
- * Calculate optimal column widths for commercial floors
- */
+// Column width calculators
 const useCommercialColumnWidths = (
   floors: FloorType[],
   isLandscape: boolean,
 ) => {
   return useMemo(() => {
-    // Calculate available width for units based on orientation
     const pageWidth = isLandscape ? CONSTANTS.A4_HEIGHT : CONSTANTS.A4_WIDTH;
     const totalPageWidth = pageWidth - CONSTANTS.PAGE_PADDING * 2;
     const availableWidthForUnits = totalPageWidth - CONSTANTS.FLOOR_CELL_WIDTH;
@@ -255,7 +225,6 @@ const useCommercialColumnWidths = (
       getUnitWidth: (_: number, floorIndex: number) => {
         const floor = floors[floorIndex];
         const totalUnits = floor.units.length;
-        // Equal distribution for all units on this floor
         return availableWidthForUnits / totalUnits;
       },
       totalUnitWidth: availableWidthForUnits,
@@ -263,23 +232,16 @@ const useCommercialColumnWidths = (
   }, [floors, isLandscape]);
 };
 
-/**
- * Calculate optimal column widths for a wing based on orientation
- */
 const useColumnWidths = (wing: WingType, isLandscape: boolean) => {
   return useMemo(() => {
-    // Calculate available width for units based on orientation
     const pageWidth = isLandscape ? CONSTANTS.A4_HEIGHT : CONSTANTS.A4_WIDTH;
     const totalPageWidth = pageWidth - CONSTANTS.PAGE_PADDING * 2;
     const availableWidthForUnits = totalPageWidth - CONSTANTS.FLOOR_CELL_WIDTH;
-
-    // Get the header floor to use for calculating column widths
     const headerFloor = wing.floors.find(
       (_floor, index) => index === wing.headerFloorIndex,
     );
 
     if (!headerFloor) {
-      // If no header floor is found, provide a uniform width
       const unitCellWidth =
         availableWidthForUnits / Math.max(wing.unitsPerFloor, 1);
       return {
@@ -289,13 +251,10 @@ const useColumnWidths = (wing: WingType, isLandscape: boolean) => {
       };
     }
 
-    // Calculate total span values for proportional widths
     const totalSpans = headerFloor.units.reduce(
       (total, unit) => total + unit.unitSpan,
       0,
     );
-
-    // Calculate base unit width (each span point gets equal portion of available width)
     const baseUnitWidth = availableWidthForUnits / Math.max(totalSpans, 1);
 
     return {
@@ -306,51 +265,50 @@ const useColumnWidths = (wing: WingType, isLandscape: boolean) => {
   }, [wing, isLandscape]);
 };
 
-/**
- * Project Header Component
- */
-const ProjectHeader: React.FC<{ project: ProjectType }> = ({ project }) => (
+// Color lookup from categories
+const statusBg = (status: string, categories: InventoryCategoryType[]) => {
+  const found = categories.find((c) => c.name === status);
+  return found?.colorHex || "#000000";
+};
+
+// Header with legend
+const ProjectHeader: React.FC<{
+  project: ProjectType;
+  categories: InventoryCategoryType[];
+}> = ({ project, categories }) => (
   <>
     <Text style={styles.title}>{project.name} - Availability Chart</Text>
     <Text style={styles.subtitle}>Project by: {project.by.toUpperCase()}</Text>
-
-    {/* Legend with status colors */}
     <View style={styles.legend}>
-      {STATUSES.map((status, index) => (
-        <View key={index} style={styles.legendItem}>
+      {categories.map((cat) => (
+        <View key={cat._id} style={styles.legendItem}>
           <View
-            style={[
-              styles.legendColor,
-              { backgroundColor: STATUS_CONFIG[status].color },
-            ]}
+            style={[styles.legendColor, { backgroundColor: cat.colorHex }]}
           />
-          <Text style={styles.legendText}>
-            {STATUS_CONFIG[status].displayName}
-          </Text>
+          <Text style={styles.legendText}>{cat.displayName}</Text>
         </View>
       ))}
     </View>
   </>
 );
 
-/**
- * Commercial Floor Row Component
- */
+// Commercial floor row
 const CommercialFloorRow: React.FC<{
   floor: FloorType;
   floorCellWidth: number;
   getUnitWidth: (unitIndex: number, floorIndex: number) => number;
   isLastRow?: boolean;
   floorIndex: number;
+  categories: InventoryCategoryType[];
 }> = ({
   floor,
   floorCellWidth,
   getUnitWidth,
   isLastRow = false,
   floorIndex,
+  categories,
 }) => (
   <View style={isLastRow ? styles.tableLastRow : styles.tableRow}>
-    {/* Floor Number Cell */}
     <View
       style={[styles.floorCell, styles.bgCommercial, { width: floorCellWidth }]}
     >
@@ -358,15 +316,13 @@ const CommercialFloorRow: React.FC<{
         {floor.displayNumber === 0 ? "Ground" : getOrdinal(floor.displayNumber)}
       </Text>
     </View>
-
-    {/* Unit Cells */}
     {floor.units.map((unit, unitIndex) => (
       <View
         key={unitIndex}
         style={[
           styles.unitCell,
           {
-            backgroundColor: STATUS_CONFIG[unit.status]?.color || "#ffffff",
+            backgroundColor: statusBg(unit.status, categories),
             width: getUnitWidth(unitIndex, floorIndex),
           },
         ]}
@@ -384,20 +340,17 @@ const CommercialFloorRow: React.FC<{
   </View>
 );
 
-/**
- * Project-level Commercial Section Component
- */
+// Project-level commercial section
 const ProjectCommercialSection: React.FC<{
   commercialFloors: FloorType[];
   isLandscape: boolean;
-}> = ({ commercialFloors, isLandscape }) => {
-  // Sort commercial floors by display number
+  categories: InventoryCategoryType[];
+}> = ({ commercialFloors, isLandscape, categories }) => {
   const sortedCommercialFloors = _.orderBy(
     commercialFloors,
     ["displayNumber"],
     ["asc"],
   );
-
   const { floorCellWidth, getUnitWidth, totalUnitWidth } =
     useCommercialColumnWidths(sortedCommercialFloors, isLandscape);
 
@@ -405,7 +358,6 @@ const ProjectCommercialSection: React.FC<{
     <>
       <View style={styles.table}>
         <View style={styles.tableRow}>
-          {/* Floor Label Cell */}
           <View
             style={[
               styles.tableHeaderCell,
@@ -420,12 +372,9 @@ const ProjectCommercialSection: React.FC<{
           >
             <Text style={{ fontSize: 10 }}>Floor</Text>
           </View>
-
-          {/* Commercial Header that spans all units */}
           <View
             style={[styles.commercialHeaderCell, { width: totalUnitWidth }]}
           >
-            {/* <Text>Commercial Units</Text> */}
             <Text
               style={[
                 styles.wingTitle,
@@ -436,17 +385,15 @@ const ProjectCommercialSection: React.FC<{
             </Text>
           </View>
         </View>
-
-        {/* Each floor gets its own header since units may vary */}
         {sortedCommercialFloors.map((floor, floorIndex) => (
           <React.Fragment key={`commercial-floor-${floorIndex}`}>
-            {/* Floor row */}
             <CommercialFloorRow
               floor={floor}
               floorCellWidth={floorCellWidth}
               getUnitWidth={getUnitWidth}
               isLastRow={floorIndex === sortedCommercialFloors.length - 1}
               floorIndex={floorIndex}
+              categories={categories}
             />
           </React.Fragment>
         ))}
@@ -455,15 +402,12 @@ const ProjectCommercialSection: React.FC<{
   );
 };
 
-/**
- * Commercial Header Component
- */
+// Commercial header row
 const CommercialHeader: React.FC<{
   floorCellWidth: number;
   totalWidth: number;
 }> = ({ floorCellWidth, totalWidth }) => (
   <View style={styles.tableRow}>
-    {/* Floor Label Cell */}
     <View
       style={[
         styles.tableHeaderCell,
@@ -473,17 +417,13 @@ const CommercialHeader: React.FC<{
     >
       <Text>Floor</Text>
     </View>
-
-    {/* Commercial Header that spans all units */}
     <View style={[styles.commercialHeaderCell, { width: totalWidth }]}>
       <Text>Commercial Floors</Text>
     </View>
   </View>
 );
 
-/**
- * Table Header Component
- */
+// Residential/commercial table header
 const TableHeader: React.FC<{
   wing: WingType;
   floorCellWidth: number;
@@ -497,12 +437,10 @@ const TableHeader: React.FC<{
   totalUnitWidth,
   isCommercial = false,
 }) => {
-  // Find the header floor that contains the configuration information
   const headerFloor = wing.floors.find(
     (_floor, index) => index === wing.headerFloorIndex,
   );
 
-  // For commercial floors, render a special commercial header
   if (isCommercial) {
     return (
       <CommercialHeader
@@ -512,10 +450,8 @@ const TableHeader: React.FC<{
     );
   }
 
-  // Regular residential header
   return (
     <View style={styles.tableRow}>
-      {/* Floor Label Cell */}
       <View
         style={[
           styles.tableHeaderCell,
@@ -525,11 +461,8 @@ const TableHeader: React.FC<{
       >
         <Text>Floor</Text>
       </View>
-
-      {/* Unit Configuration Cells */}
       {headerFloor
-        ? // Use header floor units as column headers
-          headerFloor.units.map((unit, index) => (
+        ? headerFloor.units.map((unit, index) => (
             <View
               key={index}
               style={[
@@ -544,8 +477,7 @@ const TableHeader: React.FC<{
               )}
             </View>
           ))
-        : // Fallback if no header floor is found
-          Array(wing.unitsPerFloor)
+        : Array(wing.unitsPerFloor)
             .fill(0)
             .map((_, i) => (
               <View
@@ -563,24 +495,23 @@ const TableHeader: React.FC<{
   );
 };
 
-/**
- * Floor Row Component
- */
+// Single floor row
 const FloorRow: React.FC<{
   floor: FloorType;
   floorCellWidth: number;
   getUnitWidth: (unitSpan: number) => number;
   isLastRow?: boolean;
   isCommercial?: boolean;
+  categories: InventoryCategoryType[];
 }> = ({
   floor,
   floorCellWidth,
   getUnitWidth,
   isLastRow = false,
   isCommercial = false,
+  categories,
 }) => (
   <View style={isLastRow ? styles.tableLastRow : styles.tableRow}>
-    {/* Floor Number Cell */}
     <View
       style={[
         styles.floorCell,
@@ -592,8 +523,6 @@ const FloorRow: React.FC<{
         {floor.displayNumber === 0 ? "Ground" : getOrdinal(floor.displayNumber)}
       </Text>
     </View>
-
-    {/* Unit Cells */}
     {floor.units.map((unit, index) => {
       const addPadding = !unit.reservedByOrReason && !floor.showArea;
       return (
@@ -602,7 +531,7 @@ const FloorRow: React.FC<{
           style={[
             styles.unitCell,
             {
-              backgroundColor: STATUS_CONFIG[unit.status]?.color || "#ffffff",
+              backgroundColor: statusBg(unit.status, categories),
               width: getUnitWidth(unit.unitSpan),
             },
             addPadding ? { paddingTop: 8, paddingBottom: 8 } : {},
@@ -626,21 +555,15 @@ const FloorRow: React.FC<{
   </View>
 );
 
-/**
- * Commercial Section Component
- */
+// Wing-level commercial section
 const CommercialSection: React.FC<{
   wing: WingType;
   floorCellWidth: number;
   getUnitWidth: (unitSpan: number) => number;
   totalUnitWidth: number;
-}> = ({ wing, floorCellWidth, getUnitWidth, totalUnitWidth }) => {
-  // Check if there are commercial floors
-  if (!wing.commercialFloors || wing.commercialFloors.length === 0) {
-    return null;
-  }
-
-  // Sort commercial floors by display number
+  categories: InventoryCategoryType[];
+}> = ({ wing, floorCellWidth, getUnitWidth, totalUnitWidth, categories }) => {
+  if (!wing.commercialFloors || wing.commercialFloors.length === 0) return null;
   const sortedCommercialFloors = _.orderBy(
     wing.commercialFloors,
     ["displayNumber"],
@@ -651,7 +574,6 @@ const CommercialSection: React.FC<{
     <>
       <Text style={styles.sectionTitle}>Commercial Units</Text>
       <View style={styles.table}>
-        {/* Commercial Header */}
         <TableHeader
           wing={wing}
           floorCellWidth={floorCellWidth}
@@ -659,8 +581,6 @@ const CommercialSection: React.FC<{
           totalUnitWidth={totalUnitWidth}
           isCommercial={true}
         />
-
-        {/* Commercial Floor Rows */}
         {sortedCommercialFloors.map((floor, index) => (
           <FloorRow
             key={index}
@@ -669,6 +589,7 @@ const CommercialSection: React.FC<{
             getUnitWidth={getUnitWidth}
             isLastRow={index === sortedCommercialFloors.length - 1}
             isCommercial={true}
+            categories={categories}
           />
         ))}
       </View>
@@ -676,25 +597,28 @@ const CommercialSection: React.FC<{
   );
 };
 
-/**
- * Residential Section Component
- */
+// Residential section for a page of floors
 const ResidentialSection: React.FC<{
   wing: WingType;
   floorCellWidth: number;
   getUnitWidth: (unitSpan: number) => number;
   totalUnitWidth: number;
   pageFloors: FloorType[];
-}> = ({ wing, floorCellWidth, getUnitWidth, totalUnitWidth, pageFloors }) => {
-  if (pageFloors.length === 0) {
-    return null;
-  }
+  categories: InventoryCategoryType[];
+}> = ({
+  wing,
+  floorCellWidth,
+  getUnitWidth,
+  totalUnitWidth,
+  pageFloors,
+  categories,
+}) => {
+  if (pageFloors.length === 0) return null;
 
   return (
     <>
       <Text style={styles.sectionTitle}>Residential Units</Text>
       <View style={styles.table}>
-        {/* Residential Header */}
         <TableHeader
           wing={wing}
           floorCellWidth={floorCellWidth}
@@ -702,8 +626,6 @@ const ResidentialSection: React.FC<{
           totalUnitWidth={totalUnitWidth}
           isCommercial={false}
         />
-
-        {/* Residential Floor Rows */}
         {pageFloors.map((floor, index) => (
           <FloorRow
             key={index}
@@ -712,6 +634,7 @@ const ResidentialSection: React.FC<{
             getUnitWidth={getUnitWidth}
             isLastRow={index === pageFloors.length - 1}
             isCommercial={false}
+            categories={categories}
           />
         ))}
       </View>
@@ -719,44 +642,35 @@ const ResidentialSection: React.FC<{
   );
 };
 
-/**
- * Project Commercial Page Component
- */
+// Project-level Commercial Page
 const ProjectCommercialPage: React.FC<{
   project: ProjectType;
   isLandscape: boolean;
-}> = ({ project, isLandscape }) => {
-  return (
-    <Page
-      size="A4"
-      orientation={isLandscape ? "landscape" : "portrait"}
-      style={styles.page}
-    >
-      {/* Project Header */}
-      <ProjectHeader project={project} />
+  categories: InventoryCategoryType[];
+}> = ({ project, isLandscape, categories }) => (
+  <Page
+    size="A4"
+    orientation={isLandscape ? "landscape" : "portrait"}
+    style={styles.page}
+  >
+    <ProjectHeader project={project} categories={categories} />
+    <ProjectCommercialSection
+      commercialFloors={project.commercialFloors || []}
+      isLandscape={isLandscape}
+      categories={categories}
+    />
+    <Text style={styles.footer}>
+      Generated on{" "}
+      {new Date().toLocaleString("en-GB", {
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      })}
+    </Text>
+  </Page>
+);
 
-      {/* Commercial Section */}
-      <ProjectCommercialSection
-        commercialFloors={project.commercialFloors || []}
-        isLandscape={isLandscape}
-      />
-
-      {/* Footer */}
-      <Text style={styles.footer}>
-        Generated on{" "}
-        {new Date().toLocaleString("en-GB", {
-          year: "numeric",
-          month: "2-digit",
-          day: "2-digit",
-        })}
-      </Text>
-    </Page>
-  );
-};
-
-/**
- * Wing Page Component
- */
+// Wing Page
 const WingPage: React.FC<{
   project: ProjectType;
   wing: WingType;
@@ -765,6 +679,7 @@ const WingPage: React.FC<{
   showCommercial: boolean;
   totalPages: number;
   isLandscape: boolean;
+  categories: InventoryCategoryType[];
 }> = ({
   project,
   wing,
@@ -773,6 +688,7 @@ const WingPage: React.FC<{
   showCommercial,
   totalPages,
   isLandscape,
+  categories,
 }) => {
   const { floorCellWidth, getUnitWidth, totalUnitWidth } = useColumnWidths(
     wing,
@@ -786,17 +702,15 @@ const WingPage: React.FC<{
       orientation={isLandscape ? "landscape" : "portrait"}
       style={styles.page}
     >
-      {/* Show header on first page of wing */}
-      {pageIndex === 0 && <ProjectHeader project={project} />}
-
-      {/* Wing Title with continuation indication */}
+      {pageIndex === 0 && (
+        <ProjectHeader project={project} categories={categories} />
+      )}
       {pageIndex === 0 ? (
         <Text style={styles.wingTitle}>{wing.name}</Text>
       ) : (
         <Text style={styles.continuedText}>{wing.name} (continued)</Text>
       )}
 
-      {/* Commercial Section (only on first page if showCommercial is true) */}
       {pageIndex === 0 &&
         showCommercial &&
         project.commercialUnitPlacement === "wingLevel" && (
@@ -805,10 +719,10 @@ const WingPage: React.FC<{
             floorCellWidth={floorCellWidth}
             getUnitWidth={getUnitWidth}
             totalUnitWidth={totalUnitWidth}
+            categories={categories}
           />
         )}
 
-      {/* Residential Section */}
       {pageFloors.length > 0 && (
         <ResidentialSection
           wing={wing}
@@ -816,11 +730,11 @@ const WingPage: React.FC<{
           getUnitWidth={getUnitWidth}
           totalUnitWidth={totalUnitWidth}
           pageFloors={pageFloors}
+          categories={categories}
         />
       )}
 
-      {/* Page indicator for multi-page wings */}
-      {totalPages > 1 && (
+      {totalPages > 1 ? (
         <Text style={styles.footer}>
           Page {pageIndex + 1} of {totalPages} | Generated on{" "}
           {new Date().toLocaleString("en-GB", {
@@ -829,10 +743,7 @@ const WingPage: React.FC<{
             day: "2-digit",
           })}
         </Text>
-      )}
-
-      {/* Single page footer */}
-      {totalPages === 1 && (
+      ) : (
         <Text style={styles.footer}>
           Generated on{" "}
           {new Date().toLocaleString("en-GB", {
@@ -846,65 +757,59 @@ const WingPage: React.FC<{
   );
 };
 
-/**
- * Main AvailabilityPDF Component
- */
-export const AvailabilityPDF: React.FC<{ project: ProjectType }> = ({
-  project,
-}) => {
-  // Check if project has commercial units at project level
+// MAIN: AvailabilityPDF (accept categories)
+export const AvailabilityPDF: React.FC<{
+  project: ProjectType;
+  categories: InventoryCategoryType[];
+}> = ({ project, categories }) => {
+  // Optionally sort here (if not sorted in parent)
+  const sortedCategories = useMemo<InventoryCategoryType[]>(
+    () =>
+      [...(categories || [])].sort((a, b) =>
+        a.precedence !== b.precedence
+          ? a.precedence - b.precedence
+          : new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+      ),
+    [categories],
+  );
+
   const hasProjectCommercialUnits =
     project.commercialUnitPlacement === "projectLevel" &&
     project.commercialFloors &&
     project.commercialFloors.length > 0;
 
-  // Determine orientation for project commercial section
   const isProjectCommercialLandscape =
     hasProjectCommercialUnits &&
     shouldCommercialUseLandscape(project.commercialFloors || []);
 
   return (
     <Document>
-      {/* Project-level Commercial Units (displayed before any wings) */}
       {hasProjectCommercialUnits && (
         <ProjectCommercialPage
           project={project}
           isLandscape={isProjectCommercialLandscape || false}
+          categories={sortedCategories}
         />
       )}
 
-      {/* Process each wing */}
       {project.wings.map((wing, i) => {
-        // Determine orientation based on number of units
         const isLandscape = shouldUseLandscape(wing);
-
-        // Sort floors by display number in ascending order (residential floors only)
         const sortedFloors = _.orderBy(wing.floors, ["displayNumber"], ["asc"]);
-
-        // Check if wing has commercial floors (only for wingLevel placement)
         const hasCommercialFloors =
           project.commercialUnitPlacement === "wingLevel" &&
           wing.commercialFloors &&
           wing.commercialFloors.length > 0;
-
-        // Calculate floors per page based on orientation
         const floorsPerPage = isLandscape
           ? CONSTANTS.FLOORS_PER_PAGE_LANDSCAPE
           : CONSTANTS.FLOORS_PER_PAGE_PORTRAIT;
-
-        // Calculate pages needed for this wing's residential floors
         const totalPages = Math.ceil(sortedFloors.length / floorsPerPage);
 
-        // Create pages for this wing
         return Array.from({ length: totalPages }).map((_, pageIndex) => {
-          // Calculate floor range for this page
           const startFloorIndex = pageIndex * floorsPerPage;
           const endFloorIndex = Math.min(
             startFloorIndex + floorsPerPage,
             sortedFloors.length,
           );
-
-          // Get floors for this page
           const pageFloors = sortedFloors.slice(startFloorIndex, endFloorIndex);
 
           return (
@@ -917,6 +822,7 @@ export const AvailabilityPDF: React.FC<{ project: ProjectType }> = ({
               showCommercial={hasCommercialFloors || false}
               totalPages={totalPages}
               isLandscape={isLandscape}
+              categories={sortedCategories}
             />
           );
         });

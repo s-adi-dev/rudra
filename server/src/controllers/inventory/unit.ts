@@ -1,8 +1,42 @@
 import { NextFunction, Request, Response } from "express";
 import mongoose from "mongoose";
-import { Floor, Unit, UnitType } from "../../models/inventory"; // Adjust path as needed
+import Category from "../../models/category"; // <-- make sure this path is correct
+import { Floor, Unit } from "../../models/inventory"; // Adjust path as needed
 import auditService from "../../utils/audit-service";
 import createError from "../../utils/createError";
+
+/**
+ * Helper: validate/resolve Category by name (string) and return the Category doc.
+ * Expects any string; trims & lowercases before lookup.
+ * Throws a 400 error if not found.
+ */
+async function resolveStatusOrThrow(status: unknown) {
+  if (!status || typeof status !== "string") {
+    throw createError(400, "Status is required");
+  }
+  const s = status.trim().toLowerCase();
+  const cat = await Category.findOne({ name: s });
+  if (!cat) {
+    throw createError(
+      400,
+      `Invalid status '${status}'. Create a Category first or use an existing one.`,
+    );
+  }
+  return cat; // caller may use cat.name (string) or cat fields
+}
+
+/**
+ * Normalize a status filter input (string | string[]) into lowercase names array.
+ * Accepts comma-separated strings too (e.g., "available,reserved").
+ */
+function normalizeStatusFilter(input: unknown): string[] | undefined {
+  if (!input) return undefined;
+  const arr = Array.isArray(input) ? input : String(input).split(",");
+  const cleaned = arr
+    .map((s) => String(s).trim().toLowerCase())
+    .filter(Boolean);
+  return cleaned.length ? cleaned : undefined;
+}
 
 class UnitController {
   /**
@@ -56,6 +90,9 @@ class UnitController {
         return;
       }
 
+      // Validate dynamic status (Category)
+      const category = await resolveStatusOrThrow(status);
+
       // Create new unit
       const unit = new Unit({
         floorId,
@@ -63,7 +100,7 @@ class UnitController {
         area,
         configuration,
         unitSpan,
-        status,
+        status: category.name, // store validated category name
         reservedByOrReason,
       });
 
@@ -104,10 +141,15 @@ class UnitController {
       const { floorId, status, configuration } = req.query;
 
       // Build query
-      const query: any = {};
+      const query: Record<string, any> = {};
       if (floorId) query.floorId = floorId;
-      if (status) query.status = status;
       if (configuration) query.configuration = configuration;
+
+      // Support single/multiple/comma-separated status filters
+      const statuses = normalizeStatusFilter(status);
+      if (statuses) {
+        query.status = { $in: statuses };
+      }
 
       const units = await Unit.find(query)
         .populate("floorId", "displayNumber type")
@@ -161,7 +203,7 @@ class UnitController {
   }
 
   /**
-   * Update a unit
+   * Update a unit (validates status dynamically if provided)
    */
   public async updateUnit(
     req: Request,
@@ -195,12 +237,19 @@ class UnitController {
       // Store original data for audit
       const originalData = existingUnit.toObject();
 
-      // Do not allow changing floorId or unitNumber to maintain data integrity
+      // Do not allow changing floorId to maintain data integrity
       if (req.body.floorId) {
         next(
           createError(400, "Cannot change floorId. Create a new unit instead."),
         );
         return;
+      }
+
+      // Validate status if provided
+      let validatedStatus: string | undefined;
+      if (status !== undefined) {
+        const cat = await resolveStatusOrThrow(status);
+        validatedStatus = cat.name;
       }
 
       const updatedUnit = await Unit.findByIdAndUpdate(
@@ -210,12 +259,23 @@ class UnitController {
             unitNumber:
               unitNumber !== undefined ? unitNumber : existingUnit.unitNumber,
             area: area !== undefined ? area : existingUnit.area,
-            configuration: configuration || existingUnit.configuration,
+            configuration:
+              configuration !== undefined
+                ? configuration
+                : existingUnit.configuration,
             unitSpan: unitSpan !== undefined ? unitSpan : existingUnit.unitSpan,
-            status: status || existingUnit.status,
+            status:
+              validatedStatus !== undefined
+                ? validatedStatus
+                : existingUnit.status,
             reservedByOrReason:
-              reservedByOrReason || existingUnit.reservedByOrReason,
-            referenceId: referenceId || existingUnit.referenceId,
+              reservedByOrReason !== undefined
+                ? reservedByOrReason
+                : existingUnit.reservedByOrReason,
+            referenceId:
+              referenceId !== undefined
+                ? referenceId
+                : existingUnit.referenceId,
           },
         },
         { new: true },
@@ -241,7 +301,7 @@ class UnitController {
   }
 
   /**
-   * Update unit status
+   * Update unit status (uses dynamic Category validation)
    */
   public async updateUnitStatus(
     req: Request,
@@ -257,34 +317,10 @@ class UnitController {
         return;
       }
 
-      if (!status) {
-        next(createError(400, "Status is required"));
-        return;
-      }
+      // Validate desired status via Category
+      const category = await resolveStatusOrThrow(status);
 
-      // Validate status
-      const validStatuses: UnitType["status"][] = [
-        "reserved",
-        "available",
-        "booked",
-        "registered",
-        "canceled",
-        "investor",
-        "not-for-sale",
-        "others",
-      ];
-
-      if (!validStatuses.includes(status as UnitType["status"])) {
-        next(
-          createError(
-            400,
-            `Invalid status. Must be one of: ${validStatuses.join(", ")}`,
-          ),
-        );
-        return;
-      }
-
-      // Find the unit first to ensure it exists
+      // Ensure unit exists
       const existingUnit = await Unit.findById(unitId);
       if (!existingUnit) {
         next(createError(404, "Unit not found"));
@@ -294,13 +330,13 @@ class UnitController {
       // Store original data for audit
       const originalData = existingUnit.toObject();
 
-      const updateObj: any = { status };
+      // Build update
+      const updateObj: Record<string, any> = { status: category.name };
 
-      if (status === "available") {
+      if (category.name === "available") {
         updateObj.reservedByOrReason = null;
-      } else if (reservedByOrReason) {
-        updateObj.reservedByOrReason =
-          reservedByOrReason || existingUnit.reservedByOrReason;
+      } else if (reservedByOrReason !== undefined) {
+        updateObj.reservedByOrReason = reservedByOrReason;
       }
 
       const updatedUnit = await Unit.findByIdAndUpdate(
@@ -315,7 +351,7 @@ class UnitController {
         updatedUnit?.toObject(),
         req,
         "Unit",
-        `Updated status of unit ${existingUnit.unitNumber} from ${originalData.status} to ${status}`,
+        `Updated status of unit ${existingUnit.unitNumber} from ${originalData.status} to ${category.name}`,
       );
 
       res.status(200).json({

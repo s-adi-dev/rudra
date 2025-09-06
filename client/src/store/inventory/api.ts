@@ -73,7 +73,7 @@ export interface UnitPayload {
   area: number;
   configuration: string;
   unitSpan: number;
-  status: UnitType["status"];
+  status: string;
   reservedByOrReason?: string;
   referenceId?: string;
 }
@@ -245,7 +245,7 @@ export const inventoryApi = {
     area: number;
     configuration: string;
     unitSpan: number;
-    status: UnitType["status"];
+    status: string;
     reservedByOrReason?: string;
     referenceId?: string;
   }) => {
@@ -264,7 +264,7 @@ export const inventoryApi = {
       area: number;
       configuration: string;
       unitSpan: number;
-      status: UnitType["status"];
+      status: string;
       reservedByOrReason: string;
       referenceId: string;
     }>,
@@ -280,7 +280,7 @@ export const inventoryApi = {
   updateUnitStatus: async (
     unitId: string,
     statusData: {
-      status: UnitType["status"];
+      status: string;
       reservedByOrReason?: string;
     },
   ) => {

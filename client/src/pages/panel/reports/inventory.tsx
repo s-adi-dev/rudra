@@ -18,6 +18,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 // Hooks and state
 import { toast } from "@/hooks/use-toast";
+import type { InventoryCategoryType } from "@/store/category";
+import { useCategories } from "@/store/category";
 import { ProjectType, useInventory } from "@/store/inventory";
 
 // PDF Component
@@ -37,7 +39,22 @@ export function InventoryReport() {
   const { data: projectData, isLoading: isLoadingProjectDetails } =
     useProjectDetails(selectedProject);
 
-  // Memoize projects options to prevent unnecessary re-renders
+  // Categories (fetched in parent; passed to PDF)
+  const { useCategoriesList } = useCategories();
+  const { data: categories = [], isLoading: isLoadingCategories } =
+    useCategoriesList();
+
+  const sortedCategories = useMemo<InventoryCategoryType[]>(
+    () =>
+      [...(categories || [])].sort((a, b) =>
+        a.precedence !== b.precedence
+          ? a.precedence - b.precedence
+          : new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+      ),
+    [categories],
+  );
+
+  // Memoize projects options
   const projects: ComboboxOption[] = useMemo(
     () =>
       projectsData?.data?.map((project) => ({
@@ -64,13 +81,22 @@ export function InventoryReport() {
   const downloadPDF = useCallback(
     async (project: ProjectType) => {
       if (!project) return;
+      if (!sortedCategories.length) {
+        toast({
+          title: "Missing data",
+          description: "Categories not loaded yet.",
+          variant: "destructive",
+        });
+        return;
+      }
 
       setIsGeneratingPDF(true);
       setError(null);
 
       try {
-        // Create a blob from the PDF component
-        const blob = await pdf(<AvailabilityPDF project={project} />).toBlob();
+        const blob = await pdf(
+          <AvailabilityPDF project={project} categories={sortedCategories} />,
+        ).toBlob();
 
         // Create a URL for the blob
         const url = URL.createObjectURL(blob);
@@ -112,100 +138,81 @@ export function InventoryReport() {
         setIsGeneratingPDF(false);
       }
     },
-    [generateFilename],
+    [sortedCategories, generateFilename],
   );
 
-  // Generate and preview PDF
-  const previewPDF = useCallback(async (project: ProjectType) => {
-    if (!project) return;
-
-    setIsPreviewingPDF(true);
-    setError(null);
-
-    try {
-      // Create a blob from the PDF component
-      const blob = await pdf(<AvailabilityPDF project={project} />).toBlob();
-
-      // Create a URL for the blob
-      const url = URL.createObjectURL(blob);
-
-      // Open PDF in new tab for preview
-      const newWindow = window.open(url, "_blank");
-
-      // Check if popup was blocked
-      if (!newWindow) {
-        console.warn("Pop-up blocked, unable to preview PDF.");
+  // Preview
+  const previewPDF = useCallback(
+    async (project: ProjectType) => {
+      if (!project) return;
+      if (!sortedCategories.length) {
         toast({
-          title: "Preview Blocked",
-          description:
-            "Pop-up was blocked. Please allow pop-ups to preview the PDF.",
+          title: "Missing data",
+          description: "Categories not loaded yet.",
           variant: "destructive",
         });
-      } else {
-        toast({
-          title: "PDF Preview Opened",
-          description: "The PDF preview has been opened in a new tab.",
-          variant: "success",
-        });
-
-        // Cleanup the blob URL when window unloads
-        newWindow.addEventListener("unload", () => URL.revokeObjectURL(url));
+        return;
       }
 
-      // Clean up the blob URL after a delay
-      setTimeout(() => {
-        URL.revokeObjectURL(url);
-      }, 10000);
-    } catch (error) {
-      console.error("Error previewing PDF:", error);
-      setError(
-        error instanceof Error ? error.message : "Failed to preview PDF",
-      );
+      setIsPreviewingPDF(true);
+      setError(null);
 
-      toast({
-        title: "PDF Preview Error",
-        description:
-          "There was a problem previewing the PDF. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsPreviewingPDF(false);
-    }
-  }, []);
+      try {
+        const blob = await pdf(
+          <AvailabilityPDF project={project} categories={sortedCategories} />,
+        ).toBlob();
 
-  // Handle download button click
-  const handleDownload = useCallback(() => {
-    if (projectData?.data) {
-      downloadPDF(projectData.data);
-    } else {
-      setError("No project data available");
-      toast({
-        title: "Error",
-        description: "No project data available. Please try again.",
-        variant: "destructive",
-      });
-    }
-  }, [projectData, downloadPDF]);
+        const url = URL.createObjectURL(blob);
+        const newWindow = window.open(url, "_blank");
 
-  // Handle preview button click
-  const handlePreview = useCallback(() => {
-    if (projectData?.data) {
-      previewPDF(projectData.data);
-    } else {
-      setError("No project data available");
-      toast({
-        title: "Error",
-        description: "No project data available. Please try again.",
-        variant: "destructive",
-      });
-    }
-  }, [projectData, previewPDF]);
+        if (!newWindow) {
+          toast({
+            title: "Preview Blocked",
+            description:
+              "Pop-up was blocked. Please allow pop-ups to preview the PDF.",
+            variant: "destructive",
+          });
+        } else {
+          toast({
+            title: "PDF Preview Opened",
+            description: "The PDF preview has been opened in a new tab.",
+            variant: "success",
+          });
 
-  // Determine button states
+          newWindow.addEventListener("unload", () => URL.revokeObjectURL(url));
+        }
+
+        setTimeout(() => URL.revokeObjectURL(url), 10000);
+      } catch (error) {
+        console.error("Error previewing PDF:", error);
+        setError(
+          error instanceof Error ? error.message : "Failed to preview PDF",
+        );
+        toast({
+          title: "PDF Preview Error",
+          description:
+            "There was a problem previewing the PDF. Please try again.",
+          variant: "destructive",
+        });
+      } finally {
+        setIsPreviewingPDF(false);
+      }
+    },
+    [sortedCategories],
+  );
+
+  // Button states
   const isDownloadDisabled =
-    !selectedProject || isGeneratingPDF || isLoadingProjectDetails;
+    !selectedProject ||
+    isGeneratingPDF ||
+    isLoadingProjectDetails ||
+    isLoadingCategories;
+
   const isPreviewDisabled =
-    !selectedProject || isPreviewingPDF || isLoadingProjectDetails;
+    !selectedProject ||
+    isPreviewingPDF ||
+    isLoadingProjectDetails ||
+    isLoadingCategories;
 
   return (
     <Card className="w-72 flex flex-col h-full shadow-md">
@@ -253,7 +260,7 @@ export function InventoryReport() {
           <Button
             className="w-full"
             variant="default"
-            onClick={handleDownload}
+            onClick={() => projectData?.data && downloadPDF(projectData.data)}
             disabled={isDownloadDisabled}
           >
             {isGeneratingPDF ? (
@@ -271,7 +278,7 @@ export function InventoryReport() {
           <Button
             className="w-full"
             variant="outline"
-            onClick={handlePreview}
+            onClick={() => projectData?.data && previewPDF(projectData.data)}
             disabled={isPreviewDisabled}
           >
             {isPreviewingPDF ? (

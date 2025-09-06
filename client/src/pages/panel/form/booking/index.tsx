@@ -37,7 +37,7 @@ import {
   ignoreRole,
   refDefaultOptions,
 } from "@/store/data/options";
-import { unitStatus, useInventory } from "@/store/inventory";
+import { useInventory } from "@/store/inventory";
 import { useUsersSummary } from "@/store/users";
 import { getLabelFromValue } from "@/utils/func/arrayUtils";
 import { getOrdinal } from "@/utils/func/numberUtils";
@@ -156,7 +156,7 @@ export const BookingForm = () => {
 
   // Helper functions
   const getFilteredProjectsData = () => {
-    const flatStatusFilter: unitStatus[] = ["available", "canceled"];
+    const flatStatusFilter: string[] = ["available", "canceled"];
     if (!projectsData?.data) return [];
 
     return projectsData.data
