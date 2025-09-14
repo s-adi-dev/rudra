@@ -17,12 +17,13 @@ import {
 import { formatZodMessagesOnly } from "@/utils/func/zodUtils";
 import { projectSchema } from "@/utils/zod-schema/inventory";
 import { Box } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ProjectSection } from "./project-section";
 import { WingSection } from "./wing-section";
 
 import { useBreadcrumb } from "@/hooks/use-breadcrumb";
 import { AvailabilityPDF } from "@/pdf-templates/inventory-chart";
+import { InventoryCategoryType, useCategories } from "@/store/category";
 import { CustomAxiosError } from "@/utils/types/axios";
 import { pdf } from "@react-pdf/renderer";
 import { CommercialSection } from "./commercial-section";
@@ -46,6 +47,19 @@ const InventoryForm = () => {
   const [project, setProject] = useState<ProjectType>(DEFAULT_PROJECT);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
+  const { useCategoriesList } = useCategories();
+  const { data: categories = [], isLoading: isLoadingCategories } =
+    useCategoriesList();
+
+  const sortedCategories = useMemo<InventoryCategoryType[]>(
+    () =>
+      [...(categories || [])].sort((a, b) =>
+        a.precedence !== b.precedence
+          ? a.precedence - b.precedence
+          : new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+      ),
+    [categories],
+  );
 
   useEffect(() => {
     setBreadcrumbs([
@@ -76,7 +90,10 @@ const InventoryForm = () => {
 
       // Create a blob from the PDF component
       const blob = await pdf(
-        <AvailabilityPDF project={validatedProject} />,
+        <AvailabilityPDF
+          project={validatedProject}
+          categories={sortedCategories}
+        />,
       ).toBlob();
 
       // Create a URL for the blob
@@ -226,7 +243,7 @@ const InventoryForm = () => {
         <Button
           className="w-full sm:w-auto flex justify-center items-center gap-2"
           onClick={handlePreview}
-          disabled={isGeneratingPDF}
+          disabled={isGeneratingPDF || isLoadingCategories}
         >
           {isGeneratingPDF ? "Generating PDF..." : "Preview Layout"}
         </Button>

@@ -9,14 +9,14 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { unitStatus, UnitType } from "@/store/inventory";
+import { UnitType } from "@/store/inventory";
 import withStopPropagation from "@/utils/events/withStopPropagation";
 import { capitalizeWords } from "@/utils/func/strUtils";
 import { Grid2x2Plus } from "lucide-react";
 import { useState } from "react";
 
 interface ReasonModalProps {
-  newStatus: unitStatus | undefined;
+  newStatus: string | undefined;
   unitIndex: number;
   updateUnit: (unitIndex: number, data: Partial<UnitType>) => void;
   isOpen: boolean;

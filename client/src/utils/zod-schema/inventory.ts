@@ -33,7 +33,7 @@ const unitSchema = z.object({
   area: z.number().min(1, "Area is required"),
   configuration: z.string().min(1, "Configuration is required."),
   unitSpan: z.number().int().positive().default(1),
-  status: unitStatusSchema,
+  status: z.string(),
   reservedByOrReason: z.string().optional(),
   referenceId: z.string().optional(),
 });

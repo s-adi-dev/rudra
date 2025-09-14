@@ -2,6 +2,15 @@ import { FormFieldWrapper } from "@/components/custom ui/form-field-wrapper";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
+import {
   Select,
   SelectContent,
   SelectGroup,
@@ -18,8 +27,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Input } from "@/components/ui/input";
-import { FloorType, unitStatus, UnitType } from "@/store/inventory";
+import { InventoryCategoryType, useCategories } from "@/store/category";
+import { FloorType, UnitType } from "@/store/inventory";
 import {
   CirclePlus,
   Eye,
@@ -28,27 +37,10 @@ import {
   Trash,
   Trash2,
 } from "lucide-react";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { HolderModal } from "./holder-modal";
 
 const configurations = ["shop", "office"];
-const statuses: unitStatus[] = [
-  "available",
-  "booked",
-  "registered",
-  "reserved",
-  "canceled",
-  "not-for-sale",
-  "investor",
-];
 
 // UnitTable Component
 const UnitTable = ({
@@ -61,9 +53,22 @@ const UnitTable = ({
   deleteUnit: (unitIndex: number) => void;
 }) => {
   const [isOpen, setIsOpen] = useState<number | boolean>(false);
-  const [newStatus, setNewStatus] = useState<unitStatus>();
+  const [newStatus, setNewStatus] = useState<string>();
+  const { useCategoriesList } = useCategories();
+  const { data: categories = [], isLoading: isLoadingCategories } =
+    useCategoriesList();
 
-  function handleStatusChange(unitIndex: number, status: unitStatus) {
+  const sortedCategories = useMemo<InventoryCategoryType[]>(
+    () =>
+      [...(categories || [])].sort((a, b) =>
+        a.precedence !== b.precedence
+          ? a.precedence - b.precedence
+          : new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+      ),
+    [categories],
+  );
+
+  function handleStatusChange(unitIndex: number, status: string) {
     const currentStatus = units[unitIndex].status;
 
     // If changing to available, update directly
@@ -159,8 +164,9 @@ const UnitTable = ({
                 <Select
                   value={unit.status}
                   onValueChange={(e) =>
-                    handleStatusChange(unitIndex, e as unitStatus)
+                    handleStatusChange(unitIndex, e as string)
                   }
+                  disabled={isLoadingCategories}
                 >
                   <SelectTrigger className="w-36">
                     <SelectValue placeholder="Select Status" />
@@ -168,9 +174,9 @@ const UnitTable = ({
                   <SelectContent align="center">
                     <SelectGroup>
                       <SelectLabel>Unit Status</SelectLabel>
-                      {statuses.map((status, index) => (
-                        <SelectItem value={status!} key={index}>
-                          {status!.toUpperCase()}
+                      {sortedCategories.map((status, index) => (
+                        <SelectItem value={status.name!} key={index}>
+                          {status.name!.toUpperCase()}
                         </SelectItem>
                       ))}
                     </SelectGroup>
