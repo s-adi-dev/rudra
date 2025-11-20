@@ -50,6 +50,12 @@ export const NavLinks: NavLinkType[] = [
     to: "/reports",
   },
   {
+    pageName: "EOI",
+    icon: "Bookmark",
+    label: "EOI",
+    to: "/eoi/1",
+  },
+  {
     pageName: "Settings",
     icon: "Bolt",
     label: "Settings",

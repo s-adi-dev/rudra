@@ -98,6 +98,7 @@ export const defaultRootPermissions = [
       "sales-range-report",
     ],
   },
+  { page: "EOI", actions: ["show-eoi-page"] },
   {
     page: "Settings",
     actions: [

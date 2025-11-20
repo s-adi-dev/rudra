@@ -29,6 +29,8 @@ const Role = lazy(() => import("@/pages/panel/settings/role"));
 const Audit = lazy(() => import("@/pages/panel/settings/audit"));
 const Auth = lazy(() => import("@/pages/panel/settings/auth"));
 const Category = lazy(() => import("@/pages/panel/settings/category"));
+const EOIList = lazy(() => import("@/pages/panel/eoi"));
+const EOIForm = lazy(() => import("@/pages/panel/eoi-form"));
 
 interface MainProps extends React.HTMLAttributes<HTMLElement> {
   currContent: string;
@@ -157,6 +159,17 @@ const MainBody: React.FC<MainProps> = ({
       path: "settings/categories",
       element: <Category />,
       pageName: "Settings",
+    },
+    {
+      path: "eoi/:pageno",
+      element: <EOIList />,
+      pageName: "EOI",
+    },
+
+    {
+      path: "eoi/:pageno/form/:id",
+      element: <EOIForm />,
+      pageName: "EOI",
     },
     {
       path: "*",

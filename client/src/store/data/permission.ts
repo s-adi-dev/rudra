@@ -100,6 +100,7 @@ export const AdminPermissions: Permission[] = [
       "sales-range-report",
     ],
   },
+  { page: "EOI", actions: ["show-eoi-page"] },
   {
     page: "Settings",
     actions: [
@@ -262,6 +263,11 @@ export const availablePermissionPages: AvailablePermissionPage[] = [
       { value: "booking-report", label: "View Booking Reports" },
       { value: "sales-range-report", label: "View Sales Range Reports" },
     ],
+  },
+  {
+    page: "EOI",
+    pageLabel: "Eoi Section",
+    actions: [{ value: "show-eoi-page", label: "Show EOI Page" }],
   },
   {
     page: "Settings",
