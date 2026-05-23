@@ -46,6 +46,17 @@ export const ProjectSection = ({
             placeholder="e.g. Rudra Palace"
           />
         </FormFieldWrapper>
+        <FormFieldWrapper className="gap-3" LabelText="Legal Name">
+          <Input
+            value={project.legalName || ""}
+            onChange={(e) =>
+              onProjectChange("legalName", capitalizeWords(e.target.value))
+            }
+            placeholder="e.g. Rudra Real Estate Ltd."
+          />
+        </FormFieldWrapper>
+      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <FormFieldWrapper
           className="gap-3"
           LabelText="Project By"

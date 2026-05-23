@@ -87,6 +87,7 @@ const projectSchema = z
   .object({
     _id: z.string().optional(),
     name: z.string().min(1, "Project name is required"),
+    legalName: z.string().optional(),
     by: z.string().min(1, "Project by is required"),
     location: z.string().min(1, "Project location is required"),
     email: z

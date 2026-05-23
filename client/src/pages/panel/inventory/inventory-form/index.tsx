@@ -30,6 +30,7 @@ import { CommercialSection } from "./commercial-section";
 
 const DEFAULT_PROJECT: ProjectType = {
   name: "",
+  legalName: "",
   by: "",
   location: "",
   email: "",

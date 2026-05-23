@@ -49,6 +49,16 @@ export const ProjectInfo = ({
             onChange={(e) => onProjectChange("name", e.target.value)}
           />
         </FormFieldWrapper>
+        <FormFieldWrapper className="gap-3" LabelText="Legal Name">
+          <Input
+            value={project?.legalName || ""}
+            placeholder={isEditable ? "Enter legal name" : "N/A"}
+            disabled={!isEditable}
+            onChange={(e) => onProjectChange("legalName", e.target.value)}
+          />
+        </FormFieldWrapper>
+      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <FormFieldWrapper
           className="gap-3"
           LabelText="Project By"

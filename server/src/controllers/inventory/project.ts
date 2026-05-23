@@ -32,6 +32,7 @@ type WingPayload = {
 
 type ProjectPayload = {
   name: string;
+  legalName?: string;
   by: string;
   location: string;
   email?: string;
@@ -61,6 +62,7 @@ class ProjectController {
       // Create the project first
       const project = new Project({
         name: projectData.name,
+        legalName: projectData.legalName,
         by: projectData.by,
         location: projectData.location,
         startDate: new Date(projectData.startDate),
@@ -602,6 +604,7 @@ class ProjectController {
 
       // Update project's direct properties using document methods (to trigger pre-save)
       if (projectData.name) project.name = projectData.name;
+      if (projectData.legalName) project.legalName = projectData.legalName;
       if (projectData.by) project.by = projectData.by;
       if (projectData.location) project.location = projectData.location;
       if (projectData.email) project.email = projectData.email;

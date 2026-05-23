@@ -4,6 +4,7 @@ export type commercialUnitPlacementType = "projectLevel" | "wingLevel";
 export interface ProjectType {
   _id?: string;
   name: string;
+  legalName?: string;
   by: string;
   location: string;
   email?: string;

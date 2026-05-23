@@ -36,6 +36,7 @@ export interface WingType extends Document {
 export interface ProjectType extends Document {
   _id: Types.ObjectId;
   name: string;
+  legalName?: string;
   by: string;
   location: string;
   email?: string;
@@ -168,6 +169,9 @@ const ProjectSchema = new Schema<ProjectType>(
       type: String,
       required: true,
       index: true,
+    },
+    legalName: {
+      type: String,
     },
     by: {
       type: String,

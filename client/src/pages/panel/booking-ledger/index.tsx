@@ -186,6 +186,7 @@ const BookingLedgerList = () => {
         property: {
           project: {
             name: p.name,
+            legalName: p.legalName,
             address: p.location,
           },
           unitDetails: {

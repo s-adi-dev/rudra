@@ -27,6 +27,7 @@ export interface DemandLetterDataType {
   property: {
     project: {
       name: string;
+      legalName?: string;
       address: string;
     };
     unitDetails: {
@@ -362,8 +363,9 @@ export const DemandLetterPdf = ({
             Subject: Demand Letter for Unit {data.property.unitDetails.unitNo},{" "}
             {getOrdinal(data.property.unitDetails.floorNo)} Floor,{" "}
             {formatWingLabel(data.property.unitDetails.wing)} at proposed
-            building "{data.property.project.name}" situated at{" "}
-            {data.property.project.address}.
+            building
+            {` ${data.property.project.legalName || data.property.project.name} `}
+            situated at {data.property.project.address}.
           </Text>
         </View>
         <Text style={[styles.paragraph, { marginBottom: 4 }]}>
