@@ -11,6 +11,13 @@ const formatRegisteredClientData = (client: RegisteredClientData) => {
       month: "2-digit",
       day: "2-digit",
     }),
+    "Registration Date": client.registrationDate
+      ? new Date(client.registrationDate).toLocaleString("en-GB", {
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit",
+        })
+      : "-",
     "Client Name": client.name,
     Unit: client.unit,
     Wing: client.wing || "-",
@@ -75,6 +82,7 @@ export function exportRegisteredClientsToExcel(
   // Add total row
   const totalRow = worksheet.addRow({
     Date: "",
+    "Registration Date": "",
     "Client Name": "",
     Unit: "",
     Wing: "",

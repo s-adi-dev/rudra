@@ -1,3 +1,4 @@
+import { DatePickerV2 } from "@/components/custom ui/date-time-pickers";
 import { FormFieldWrapper } from "@/components/custom ui/form-field-wrapper";
 import { Button } from "@/components/ui/button";
 import {
@@ -41,6 +42,9 @@ export const BookingStatusForm = ({
   const [bookingStatus, setBookingStatus] = useState<bookingClientStatus>(
     booking.status,
   );
+  const [registrationDate, setRegistrationDate] = useState<Date | undefined>(
+    booking.registrationDate ? new Date(booking.registrationDate) : undefined,
+  );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const updateBookingMutation = useUpdateClientBooking();
   const { updateUnitStatusMutation } = useInventory();
@@ -57,9 +61,27 @@ export const BookingStatusForm = ({
   const handleSave = async () => {
     try {
       setIsSubmitting(true);
+      const updateData: { status: bookingClientStatus; registrationDate?: Date } = {
+        status: bookingStatus,
+      };
+
+      // Include registrationDate if status is registered
+      if (bookingStatus === "registered") {
+        if (!registrationDate) {
+          toast({
+            title: "Registration Date Required",
+            description: "Please select a registration date for registered status.",
+            variant: "destructive",
+          });
+          setIsSubmitting(false);
+          return;
+        }
+        updateData.registrationDate = registrationDate;
+      }
+
       await updateBookingMutation.mutateAsync({
         id: booking._id,
-        updateData: { status: bookingStatus },
+        updateData,
       });
 
       if (bookingStatus == "registered") {
@@ -127,6 +149,23 @@ export const BookingStatusForm = ({
               </SelectContent>
             </Select>
           </FormFieldWrapper>
+
+          {bookingStatus === "registered" && (
+            <FormFieldWrapper
+              Important
+              ImportantSide="right"
+              LabelText="Registration Date"
+              className="gap-3"
+            >
+              <DatePickerV2
+                defaultDate={registrationDate}
+                onDateChange={setRegistrationDate}
+                disabled={isSubmitting}
+                className="sm:w-full"
+                closeOnDayClick={true}
+              />
+            </FormFieldWrapper>
+          )}
         </div>
 
         <DialogFooter className="flex justify-end gap-2 pt-2">
@@ -139,7 +178,11 @@ export const BookingStatusForm = ({
           </Button>
           <Button
             onClick={handleSave}
-            disabled={isSubmitting || bookingStatus == booking.status}
+            disabled={
+              isSubmitting ||
+              bookingStatus == booking.status ||
+              (bookingStatus === "registered" && !registrationDate)
+            }
           >
             {isSubmitting ? "Saving..." : "Save Changes"}
           </Button>

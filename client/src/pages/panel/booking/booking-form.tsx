@@ -55,6 +55,7 @@ export const BookingUpdateForm = ({
     if (isOpen && booking) {
       setFormData({
         date: booking.date,
+        registrationDate: booking.registrationDate || undefined,
         applicant: booking.applicant,
         coApplicant: booking.coApplicant || "",
         aadhaarNo: booking.aadhaarNo || "",
@@ -108,6 +109,13 @@ export const BookingUpdateForm = ({
     setFormData((prev) => ({
       ...prev,
       date: date,
+    }));
+  };
+
+  const handleRegistrationDateChange = (date: Date) => {
+    setFormData((prev) => ({
+      ...prev,
+      registrationDate: date,
     }));
   };
 
@@ -195,6 +203,26 @@ export const BookingUpdateForm = ({
                   closeOnDayClick={true}
                 />
               </FormFieldWrapper>
+
+              {/* Registration Date Field */}
+              {booking.status === "registered" && (
+                <FormFieldWrapper
+                  LabelText="Registration Date"
+                  className="gap-3"
+                >
+                  <DatePickerV2
+                    defaultDate={
+                      formData.registrationDate
+                        ? new Date(formData.registrationDate)
+                        : undefined
+                    }
+                    onDateChange={handleRegistrationDateChange}
+                    disabled={isSubmitting}
+                    className="sm:w-full"
+                    closeOnDayClick={true}
+                  />
+                </FormFieldWrapper>
+              )}
 
               {/* Applicant Information */}
               <FormFieldWrapper

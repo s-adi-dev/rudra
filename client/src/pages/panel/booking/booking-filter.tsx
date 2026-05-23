@@ -48,6 +48,8 @@ const initialFilters = {
   manager: "",
   fromDate: undefined as Date | undefined,
   toDate: undefined as Date | undefined,
+  fromRegDate: undefined as Date | undefined,
+  toRegDate: undefined as Date | undefined,
 };
 
 const statusOptions: ComboboxOption[] = [
@@ -105,6 +107,8 @@ export const BookingFilter = ({
     if (filters.manager) currentFilters.manager = filters.manager;
     if (filters.fromDate) currentFilters.fromDate = filters.fromDate;
     if (filters.toDate) currentFilters.toDate = filters.toDate;
+    if (filters.fromRegDate) currentFilters.fromRegDate = filters.fromRegDate;
+    if (filters.toRegDate) currentFilters.toRegDate = filters.toRegDate;
 
     setActiveFilters(currentFilters);
     countAppliedFilters(currentFilters);
@@ -140,7 +144,7 @@ export const BookingFilter = ({
       const value = activeFilters[filterKey];
 
       if (value) {
-        if (filterKey === "fromDate" || filterKey === "toDate") {
+        if (filterKey === "fromDate" || filterKey === "toDate" || filterKey === "fromRegDate" || filterKey === "toRegDate") {
           newFilters[filterKey] = value as Date;
         } else if (filterKey === "plan") {
           newFilters[filterKey] = value as "regular-payment" | "down-payment";
@@ -169,7 +173,7 @@ export const BookingFilter = ({
   // Filter content component to use in both Sheet and Drawer
   const FilterContent = () => (
     <div className="flex flex-col gap-8 py-4">
-      <FormFieldWrapper LabelText="Pick Date">
+      <FormFieldWrapper LabelText="Pick Booking Date">
         <div className="flex flex-col sm:flex-row gap-3">
           <DatePickerV2
             placeholder="Start date"
@@ -182,6 +186,23 @@ export const BookingFilter = ({
             className="sm:w-full"
             defaultDate={activeFilters.toDate}
             onDateChange={(date) => updateFilter("toDate", date)}
+          />
+        </div>
+      </FormFieldWrapper>
+
+      <FormFieldWrapper LabelText="Pick Registration Date">
+        <div className="flex flex-col sm:flex-row gap-3">
+          <DatePickerV2
+            placeholder="Start date"
+            className="sm:w-full"
+            defaultDate={activeFilters.fromRegDate}
+            onDateChange={(date) => updateFilter("fromRegDate", date)}
+          />
+          <DatePickerV2
+            placeholder="End date"
+            className="sm:w-full"
+            defaultDate={activeFilters.toRegDate}
+            onDateChange={(date) => updateFilter("toRegDate", date)}
           />
         </div>
       </FormFieldWrapper>

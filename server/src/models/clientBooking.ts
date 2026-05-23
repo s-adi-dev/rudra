@@ -12,6 +12,7 @@ type status =
 export interface ClientBookingType extends Document {
   _id: Types.ObjectId;
   date: Date;
+  registrationDate?: Date | null;
   applicant: string;
   coApplicant?: string;
   aadhaarNo?: string;
@@ -49,6 +50,11 @@ const ClientBookingSchema: Schema = new Schema(
       type: Date,
       required: true,
       default: Date.now,
+    },
+    registrationDate: {
+      type: Date,
+      default: null,
+      sparse: true, // Allows multiple null values for existing records
     },
     applicant: {
       type: String,

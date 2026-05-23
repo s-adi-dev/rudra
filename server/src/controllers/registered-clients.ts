@@ -7,6 +7,7 @@ import createError from "../utils/createError";
 interface RegisteredClientData {
   clientId: string;
   date: Date;
+  registrationDate?: Date | null;
   name: string;
   unit: string;
   wing?: string;
@@ -153,6 +154,7 @@ export class RegisteredClientsController {
           return {
             clientId: clientIdStr,
             date: client.date,
+            registrationDate: client.registrationDate || null,
             name: client.applicant,
             unit: unitNumber,
             wing: client.wing,

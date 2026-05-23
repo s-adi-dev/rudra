@@ -5,6 +5,7 @@ import newRequest from "@/utils/func/request";
 export interface RegisteredClientData {
   clientId: string;
   date: string;
+  registrationDate?: string | null;
   name: string;
   unit: string;
   wing?: string;

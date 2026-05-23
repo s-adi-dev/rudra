@@ -80,6 +80,8 @@ export class ClientBookingController {
         search,
         fromDate,
         toDate,
+        fromRegDate,
+        toRegDate,
         status,
         project,
         plan, // paymentType
@@ -147,6 +149,37 @@ export class ClientBookingController {
           localToDate.setHours(23, 59, 59, 999);
 
           filter.date.$lte = localToDate;
+        }
+      }
+
+      // Registration date range filter with timezone adjustment
+      if (fromRegDate || toRegDate) {
+        filter.registrationDate = {};
+
+        if (fromRegDate) {
+          // Create date in local timezone (IST)
+          const fromRegDateStr = fromRegDate as string;
+          const fromRegDateObj = new Date(fromRegDateStr);
+
+          // Adjust to IST by adding the timezone offset
+          const offset = fromRegDateObj.getTimezoneOffset() * 60000;
+          const localFromRegDate = new Date(fromRegDateObj.getTime() - offset);
+          localFromRegDate.setHours(0, 0, 0, 0);
+
+          filter.registrationDate.$gte = localFromRegDate;
+        }
+
+        if (toRegDate) {
+          // Create date in local timezone (IST)
+          const toRegDateStr = toRegDate as string;
+          const toRegDateObj = new Date(toRegDateStr);
+
+          // Adjust to IST by adding the timezone offset
+          const offset = toRegDateObj.getTimezoneOffset() * 60000;
+          const localToRegDate = new Date(toRegDateObj.getTime() - offset);
+          localToRegDate.setHours(23, 59, 59, 999);
+
+          filter.registrationDate.$lte = localToRegDate;
         }
       }
 

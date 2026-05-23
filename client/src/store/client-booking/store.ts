@@ -10,6 +10,8 @@ export interface BookingFilters {
   project?: string;
   fromDate?: Date;
   toDate?: Date;
+  fromRegDate?: Date;
+  toRegDate?: Date;
   plan?: "regular-payment" | "down-payment";
   manager?: string;
 }

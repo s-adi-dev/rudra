@@ -10,6 +10,7 @@ export type bookingClientStatus =
 export interface ClientBooking {
   _id: string;
   date: Date;
+  registrationDate?: Date | null;
   applicant: string;
   coApplicant?: string;
   aadhaarNo?: string;
@@ -59,6 +60,7 @@ export interface ClientBookingResponse {
 // Type for booking creation/update
 export interface ClientBookingCreateUpdateData {
   date?: Date;
+  registrationDate?: Date | null;
   applicant: string;
   coApplicant?: string;
   aadhaarNo?: string;

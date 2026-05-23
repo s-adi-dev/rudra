@@ -163,6 +163,9 @@ export const BookingTable = ({ data }: BookingTableProps) => {
             <TableHead className="text-center">Date</TableHead>
             <TableHead className="text-center">Applicant</TableHead>
             <TableHead className="text-center">Status</TableHead>
+            <TableHead className="text-center whitespace-nowrap">
+              Reg. Date
+            </TableHead>
             <TableHead className="text-center">Project</TableHead>
             <TableHead className="text-center">Wing</TableHead>
             <TableHead className="text-center">Unit</TableHead>
@@ -176,7 +179,7 @@ export const BookingTable = ({ data }: BookingTableProps) => {
         <TableBody>
           {!data?.data?.length ? (
             <TableRow>
-              <TableCell colSpan={12} className="text-center">
+              <TableCell colSpan={13} className="text-center">
                 No Booking Data
               </TableCell>
             </TableRow>
@@ -212,6 +215,18 @@ export const BookingTable = ({ data }: BookingTableProps) => {
                           ? "REG. PROCESS"
                           : booking.status.replace("-", " ").toUpperCase()}
                       </Badge>
+                    </TableCell>
+                    <TableCell className="text-center">
+                      {booking.registrationDate
+                        ? new Date(booking.registrationDate).toLocaleString(
+                            "en-GB",
+                            {
+                              year: "numeric",
+                              month: "2-digit",
+                              day: "2-digit",
+                            },
+                          )
+                        : "N/A"}
                     </TableCell>
                     <TableCell className="text-center whitespace-nowrap">
                       {booking.project}
