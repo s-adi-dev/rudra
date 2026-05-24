@@ -10,6 +10,7 @@ import categoryRoute from "./category";
 import clientRoute from "./client";
 import clientPartnerRoute from "./client-partner";
 import clientBookingRoute from "./clientBooking";
+import cpManagementRoute from "./cp-management";
 import registeredClients from "./registered-clients";
 import eoiRoute from "./eoi";
 import inventoryRoute from "./inventory";
@@ -29,6 +30,7 @@ const ROUTES: Array<{ path: string; router: IRouter }> = [
   { path: "/booking-ledger", router: bookingLedgerRoute },
   { path: "/visit", router: visitRoute },
   { path: "/client-partner", router: clientPartnerRoute },
+  { path: "/cp-management", router: cpManagementRoute },
   { path: "/analytics", router: analyticsRoute },
   { path: "/inventory", router: inventoryRoute },
   { path: "/bank", router: bankRoute },

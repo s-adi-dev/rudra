@@ -41,12 +41,15 @@ export const AdminPermissions: Permission[] = [
       "create-client-partner",
       "update-client-partner",
       "delete-client-partner",
+      "merge-cp",
       "view-cp-contacts",
       "view-all-cp",
       "view-cp-details",
       "create-cp-employee",
       "update-cp-employee",
       "delete-cp-employee",
+      "merge-cp-employee",
+      "transfer-cp-employee",
     ],
   },
   {
@@ -189,6 +192,7 @@ export const availablePermissionPages: AvailablePermissionPage[] = [
       { value: "create-client-partner", label: "Create Channel Partner" },
       { value: "update-client-partner", label: "Update Channel Partner" },
       { value: "delete-client-partner", label: "Delete Channel Partner" },
+      { value: "merge-cp", label: "Merge Channel Partner" },
       { value: "view-cp-details", label: "View Channel Partner Details" },
       {
         value: "create-cp-employee",
@@ -201,6 +205,11 @@ export const availablePermissionPages: AvailablePermissionPage[] = [
       {
         value: "delete-cp-employee",
         label: "Delete Channel Partner Employee",
+      },
+      { value: "merge-cp-employee", label: "Merge Channel Partner Employee" },
+      {
+        value: "transfer-cp-employee",
+        label: "Transfer Channel Partner Employee",
       },
     ],
   },
