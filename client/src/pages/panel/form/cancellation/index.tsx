@@ -11,6 +11,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { useUpdateClientBooking } from "@/store/client-booking/query";
 import { UnitType, useInventory } from "@/store/inventory";
@@ -46,6 +47,7 @@ export const CancellationDataSchema = z.object({
   property: PropertySchema,
   date: z.date(),
   holder: z.string(),
+  isTransfer: z.boolean().default(false),
 });
 
 function DEFAULT_VALUE(formType: "residential" | "commercial") {
@@ -66,6 +68,7 @@ function DEFAULT_VALUE(formType: "residential" | "commercial") {
     },
     date: new Date(),
     holder: "",
+    isTransfer: false,
   };
 }
 export const CancellationForm = () => {
@@ -321,10 +324,14 @@ export const CancellationForm = () => {
       },
       onAction: async () => {
         try {
+          const inventoryStatus = cancellationData.isTransfer
+            ? "available"
+            : "canceled";
+
           if (selectedUnit?._id) {
             await updateUnitStatusMutation.mutateAsync({
               unitId: selectedUnit._id!,
-              status: "canceled",
+              status: inventoryStatus,
             });
           }
 
@@ -376,6 +383,21 @@ export const CancellationForm = () => {
             >
               Commercial
             </Button>
+          </div>
+          <div className="flex items-center gap-2">
+            <Checkbox
+              id="isTransfer"
+              checked={cancellationData.isTransfer}
+              onCheckedChange={(checked) =>
+                setCancellationData((prev) => ({
+                  ...prev,
+                  isTransfer: checked === true,
+                }))
+              }
+            />
+            <label htmlFor="isTransfer" className="text-sm cursor-pointer">
+              This is a transfer (unit will be available for new booking)
+            </label>
           </div>
           <div
             className={`grid grid-cols-1 lg:${showWing ? "grid-cols-5" : "grid-cols-4"} gap-4 lg:gap-1`}
