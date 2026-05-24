@@ -10,6 +10,7 @@ import {
 import { useBreadcrumbStore } from "@/hooks/use-breadcrumb";
 import { PopulatedVisit } from "@/store/client";
 import { usersSummaryType, useUsersSummary } from "@/store/users";
+import { toProperCase } from "@/utils/func/strUtils";
 import { ChevronRight } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
@@ -60,6 +61,7 @@ export const CP_ClientTable = ({ data, pageCursor }: CP_ClientTableProps) => {
             <TableHead className="text-center">Source</TableHead>
             <TableHead className="text-center">Relation</TableHead>
             <TableHead className="text-center">Closing</TableHead>
+            <TableHead className="text-center">Status</TableHead>
             <TableHead className="text-center">Action</TableHead>
           </TableRow>
         </TableHeader>
@@ -94,6 +96,9 @@ export const CP_ClientTable = ({ data, pageCursor }: CP_ClientTableProps) => {
                   </TableCell>
                   <TableCell className="text-center">
                     {getManagerName(visit.closing, managers)}
+                  </TableCell>
+                  <TableCell className="text-center">
+                    {toProperCase(visit.status || "")}
                   </TableCell>
                   <TableCell className="text-center">
                     <Button
