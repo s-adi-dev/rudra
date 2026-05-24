@@ -155,4 +155,102 @@ export const clientPartnerApi = {
     );
     return response.data;
   },
+
+  // CP Management endpoints
+
+  // Merge two client partners (transfer all employees from source to target)
+  mergeClientPartners: async (sourceId: string, targetId: string) => {
+    const response = await newRequest.post<{
+      message: string;
+      transferredEmployees: Array<{ _id: string; name: string }>;
+      transferCount: number;
+      targetClientPartner: string;
+    }>("/cp-management/merge-cp", {
+      sourceId,
+      targetId,
+    });
+    return response.data;
+  },
+
+  // Merge two CP employees (transfer all referred clients from source to target)
+  mergeEmployees: async (sourceId: string, targetId: string) => {
+    const response = await newRequest.post<{
+      message: string;
+      transferredReferrals: number;
+      targetEmployee: { _id: string; name: string };
+      sourceEmployee: { _id: string; name: string };
+    }>("/cp-management/merge-employees", {
+      sourceId,
+      targetId,
+    });
+    return response.data;
+  },
+
+  // Transfer a single employee to a different client partner
+  transferEmployee: async (
+    employeeId: string,
+    targetClientPartnerId: string,
+  ) => {
+    const response = await newRequest.post<{
+      message: string;
+      employee: { _id: string; name: string; position: string };
+      sourceClientPartner: string;
+      targetClientPartner: string;
+      transferredReferrals: number;
+    }>("/cp-management/transfer-employee", {
+      employeeId,
+      targetClientPartnerId,
+    });
+    return response.data;
+  },
+
+  // Get potential merge candidates for client partners
+  getClientPartnerMergeCandidates: async (
+    cpId: string,
+    threshold: number = 0.8,
+  ) => {
+    const response = await newRequest.get<{
+      currentCP: { _id: string; name: string; employeeCount: number };
+      mergeCandidates: Array<{
+        _id: string;
+        name: string;
+        email?: string;
+        phoneNo?: string;
+        employeeCount: number;
+        similarityScore: number;
+        reasons: string[];
+      }>;
+      candidateCount: number;
+    }>(`/cp-management/cp-merge-candidates/${cpId}?threshold=${threshold}`);
+    return response.data;
+  },
+
+  // Get potential merge candidates for employees
+  getEmployeeMergeCandidates: async (
+    employeeId: string,
+    threshold: number = 0.7,
+  ) => {
+    const response = await newRequest.get<{
+      currentEmployee: {
+        _id: string;
+        name: string;
+        referredClientCount: number;
+      };
+      mergeCandidates: Array<{
+        _id: string;
+        firstName: string;
+        lastName: string;
+        email?: string;
+        phoneNo?: string;
+        position: string;
+        referredClientCount: number;
+        similarityScore: number;
+        reasons: string[];
+      }>;
+      candidateCount: number;
+    }>(
+      `/cp-management/employee-merge-candidates/${employeeId}?threshold=${threshold}`,
+    );
+    return response.data;
+  },
 };

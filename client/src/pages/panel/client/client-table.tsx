@@ -161,7 +161,7 @@ export const ClientTable = ({
                       {customReferenceOptions.includes(
                         client.visits[0].reference,
                       )
-                        ? client.visits[0].otherRefs
+                        ? `${client.visits[0].reference} - ${client.visits[0].otherRefs}`
                         : getRefernceName(
                             client.visits[0].reference,
                             refData?.references,

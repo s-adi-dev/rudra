@@ -283,6 +283,7 @@ const ClientPartnerDetails = () => {
             isEditable={isEditable}
             handleDelete={handleDelete}
             handleUpdate={handleEditToggle}
+            currentCP={clientPatner}
           />
         </div>
         <dialog.AlertDialog />
