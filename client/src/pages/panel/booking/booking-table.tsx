@@ -391,7 +391,7 @@ const MoreAction = ({
     ),
     ledgerPerms:
       hasPermission(combinedRole, "BookingLedger", "view-booking-ledger") &&
-      booking.status == "registered",
+      ["registered", "registeration-process"].includes(booking.status),
   };
 
   const hasPerms =
