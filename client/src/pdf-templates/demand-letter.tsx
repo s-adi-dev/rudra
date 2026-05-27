@@ -241,6 +241,13 @@ const styles = StyleSheet.create({
     margin: "5 0",
     fontSize: 9,
   },
+  paymentTerms: {
+    marginTop: 10,
+    marginBottom: 8,
+    textAlign: "justify",
+    fontSize: 9,
+    lineHeight: 1.4,
+  },
   bankTable: {
     width: "auto",
     borderStyle: "solid",
@@ -466,10 +473,6 @@ export const DemandLetterPdf = ({
         <Text style={styles.amountWords}>
           (Rupees: {numberToWords(amountPayable + interestAmount)})
         </Text>
-        <Text style={styles.paragraph}>
-          We request you to release the balance payment within 7 days, interest
-          will be charged @24% per annum after 7 days.
-        </Text>
         <Text style={[styles.paragraph, { marginBottom: 3 }]}>
           <Text style={styles.bold}>
             The cheque/payment to be made in favor of:
@@ -522,17 +525,23 @@ export const DemandLetterPdf = ({
             </View>
           </View>
         </View>
+        <Text style={styles.paymentTerms}>
+          Kindly ensure timely payment for smooth construction progress and
+          scheduled possession. Please clear all dues (including GST) within 7
+          days. Delayed payments will attract interest on the outstanding due
+          amount until realization. Any applicable interest, along with GST,
+          will be charged separately through a debit note payable on demand.
+        </Text>
         <View style={styles.closing}>
           <Text>Thanking You,</Text>
-          <Text>Yours Faithfully</Text>
         </View>
         {isSigned && (
           <View
             style={{
               position: "absolute",
-              bottom: interestAmount ? 120 : 130,
+              bottom: interestAmount ? 110 : 130,
               ...(interestAmount ? { right: 130 } : { left: 75 }),
-              alignItems: "center", // Center align items
+              alignItems: "center",
               justifyContent: "center",
             }}
           >
