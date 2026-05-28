@@ -539,7 +539,9 @@ export const DemandLetterPdf = ({
           <View
             style={{
               position: "absolute",
-              bottom: interestAmount ? 110 : 130,
+              bottom:
+                (interestAmount ? 110 : 130) -
+                (data.applicationInfo.coApplicant ? 10 : 0),
               ...(interestAmount ? { right: 130 } : { left: 75 }),
               alignItems: "center",
               justifyContent: "center",
