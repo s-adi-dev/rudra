@@ -1,17 +1,11 @@
-import { toProperCase } from "@/utils/func/strUtils";
 import { StyleSheet, Text, View } from "@react-pdf/renderer";
-import { ALL_UNIT_STATUSES } from "./utils";
-
-function getStatusHeader(status: Exclude<string, "others">) {
-  switch (status) {
-    case "not-for-sale":
-      return "N.F.S";
-    case "registered":
-      return "Reg.";
-    default:
-      return toProperCase(status);
-  }
-}
+import { InventoryCategoryType } from "@/store/category";
+import {
+  calculateHeaderFontSize,
+  calculateHeaderPadding,
+  getStatusHeaderAbbreviation,
+} from "./utils";
+import { toProperCase } from "@/utils/func/strUtils";
 
 const styles = StyleSheet.create({
   container: {
@@ -133,69 +127,174 @@ interface WingSummaryTableProps {
     summaryData: SummaryRowData[];
     totalRow: SummaryRowData;
   };
+  statuses: string[];
+  categories: InventoryCategoryType[];
 }
 
-export const WingSummaryTable = ({ summary }: WingSummaryTableProps) => (
-  <View style={styles.container}>
-    <View style={styles.table}>
-      {/* Header Row */}
-      <View style={[styles.tableRow, styles.headerRow]}>
-        <Text style={[styles.headerCellLeft, { flex: 1.5 }]}>
-          Configuration
-        </Text>
-        {ALL_UNIT_STATUSES.map((status, index) => (
-          <Text key={index} style={[styles.headerCell, { flex: 1 }]}>
-            {getStatusHeader(status)}
-          </Text>
-        ))}
-        <Text style={[styles.headerCell, { flex: 1 }]}>Total</Text>
-      </View>
+export const WingSummaryTable = ({
+  summary,
+  statuses,
+}: WingSummaryTableProps) => {
+  const headerFontSize = calculateHeaderFontSize(statuses.length);
+  const headerPadding = calculateHeaderPadding(statuses.length);
 
-      {/* Data Rows */}
-      {summary.summaryData.map((row, rowIndex) => (
-        <View
-          key={rowIndex}
-          style={[
-            styles.tableRow,
-            rowIndex % 2 === 1 ? { backgroundColor: "#F8FAFC" } : {},
-          ]}
-        >
-          <Text style={[styles.cellLeft, { flex: 1.5 }]}>
-            {row.configuration.toUpperCase()}
+  return (
+    <View style={styles.container}>
+      <View style={styles.table}>
+        {/* Header Row */}
+        <View style={[styles.tableRow, styles.headerRow]}>
+          <Text
+            style={[
+              styles.headerCellLeft,
+              {
+                flex: 1.5,
+                fontSize: headerFontSize,
+                padding: headerPadding,
+                paddingLeft: headerPadding,
+                paddingRight: headerPadding / 2,
+              },
+            ]}
+          >
+            Configuration
           </Text>
-          {ALL_UNIT_STATUSES.map((status, index) => (
+          {statuses.map((status, index) => (
             <Text
               key={index}
               style={[
-                styles.statusCell,
+                styles.headerCell,
                 {
                   flex: 1,
-                  color: "#000000",
-                  fontWeight: (row[status] as number) > 0 ? "bold" : "normal",
+                  fontSize: headerFontSize,
+                  padding: headerPadding,
+                  paddingLeft: headerPadding / 2,
+                  paddingRight: headerPadding / 2,
                 },
               ]}
             >
-              {row[status] || 0}
+              {status !== getStatusHeaderAbbreviation(status)
+                ? getStatusHeaderAbbreviation(status)
+                : toProperCase(status)}
             </Text>
           ))}
-          <Text style={[styles.cell, { flex: 1, fontWeight: "bold" }]}>
-            {row.total}
+          <Text
+            style={[
+              styles.headerCell,
+              {
+                flex: 1,
+                fontSize: headerFontSize,
+                padding: headerPadding,
+                paddingLeft: headerPadding / 2,
+                paddingRight: headerPadding / 2,
+              },
+            ]}
+          >
+            Total
           </Text>
         </View>
-      ))}
 
-      {/* Total Row */}
-      <View style={[styles.tableRow, styles.totalRow]}>
-        <Text style={[styles.totalCellLeft, { flex: 1.5 }]}>Total</Text>
-        {ALL_UNIT_STATUSES.map((status, index) => (
-          <Text key={index} style={[styles.totalCell, { flex: 1 }]}>
-            {summary.totalRow[status] || 0}
-          </Text>
+        {/* Data Rows */}
+        {summary.summaryData.map((row, rowIndex) => (
+          <View
+            key={rowIndex}
+            style={[
+              styles.tableRow,
+              rowIndex % 2 === 1 ? { backgroundColor: "#F8FAFC" } : {},
+            ]}
+          >
+            <Text
+              style={[
+                styles.cellLeft,
+                {
+                  flex: 1.5,
+                  padding: headerPadding,
+                  paddingLeft: headerPadding,
+                  paddingRight: headerPadding / 2,
+                },
+              ]}
+            >
+              {row.configuration.toUpperCase()}
+            </Text>
+            {statuses.map((status, index) => (
+              <Text
+                key={index}
+                style={[
+                  styles.statusCell,
+                  {
+                    flex: 1,
+                    color: "#000000",
+                    fontWeight: (row[status] as number) > 0 ? "bold" : "normal",
+                    padding: headerPadding,
+                    paddingLeft: headerPadding / 2,
+                    paddingRight: headerPadding / 2,
+                  },
+                ]}
+              >
+                {row[status] || 0}
+              </Text>
+            ))}
+            <Text
+              style={[
+                styles.cell,
+                {
+                  flex: 1,
+                  fontWeight: "bold",
+                  padding: headerPadding,
+                  paddingLeft: headerPadding / 2,
+                  paddingRight: headerPadding / 2,
+                },
+              ]}
+            >
+              {row.total}
+            </Text>
+          </View>
         ))}
-        <Text style={[styles.totalCell, { flex: 1 }]}>
-          {summary.totalRow.total}
-        </Text>
+
+        {/* Total Row */}
+        <View style={[styles.tableRow, styles.totalRow]}>
+          <Text
+            style={[
+              styles.totalCellLeft,
+              {
+                flex: 1.5,
+                padding: headerPadding,
+                paddingLeft: headerPadding,
+                paddingRight: headerPadding / 2,
+              },
+            ]}
+          >
+            Total
+          </Text>
+          {statuses.map((status, index) => (
+            <Text
+              key={index}
+              style={[
+                styles.totalCell,
+                {
+                  flex: 1,
+                  padding: headerPadding,
+                  paddingLeft: headerPadding / 2,
+                  paddingRight: headerPadding / 2,
+                },
+              ]}
+            >
+              {summary.totalRow[status] || 0}
+            </Text>
+          ))}
+          <Text
+            style={[
+              styles.totalCell,
+              {
+                flex: 1,
+                padding: headerPadding,
+                paddingLeft: headerPadding / 2,
+                paddingRight: headerPadding / 2,
+              },
+            ]}
+          >
+            {summary.totalRow.total}
+          </Text>
+        </View>
       </View>
     </View>
-  </View>
-);
+  );
+};

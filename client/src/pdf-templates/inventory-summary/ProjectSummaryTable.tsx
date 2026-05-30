@@ -1,17 +1,12 @@
-import { toProperCase } from "@/utils/func/strUtils";
 import { StyleSheet, Text, View } from "@react-pdf/renderer";
-import { ALL_UNIT_STATUSES, getStatusColor } from "./utils";
-
-function getStatusHeader(status: Exclude<string, "others">) {
-  switch (status) {
-    case "not-for-sale":
-      return "N.F.S";
-    case "registered":
-      return "Reg.";
-    default:
-      return toProperCase(status);
-  }
-}
+import { InventoryCategoryType } from "@/store/category";
+import {
+  getStatusColor,
+  calculateHeaderFontSize,
+  calculateHeaderPadding,
+  getStatusHeaderAbbreviation,
+} from "./utils";
+import { toProperCase } from "@/utils/func/strUtils";
 
 const styles = StyleSheet.create({
   container: {
@@ -92,50 +87,105 @@ const styles = StyleSheet.create({
 interface ProjectSummaryProps {
   summary: {
     totalUnits: number;
-    statusCounts: Record<Exclude<string, "others">, number>;
-    percentages: Record<Exclude<string, "others">, string>;
+    statusCounts: Record<string, number>;
+    percentages: Record<string, string>;
   };
+  statuses: string[];
+  categories: InventoryCategoryType[];
 }
 
-export const ProjectSummaryTable = ({ summary }: ProjectSummaryProps) => (
-  <View style={styles.container}>
-    <View style={styles.card}>
-      <Text style={styles.title}>Project Overall Summary</Text>
-      <View style={styles.table}>
-        <View style={[styles.tableRow, styles.headerRow]}>
-          <Text style={[styles.headerCell, { flex: 2 }]}>Total Units</Text>
-          {ALL_UNIT_STATUSES.map((status, index) => (
-            <Text key={index} style={[styles.headerCell, { flex: 1 }]}>
-              {getStatusHeader(status)}
-            </Text>
-          ))}
-        </View>
-        <View style={styles.tableRow}>
-          <Text style={[styles.cell, { flex: 2, fontWeight: "bold" }]}>
-            {summary.totalUnits}
-          </Text>
-          {ALL_UNIT_STATUSES.map((status, index) => (
-            <View
-              key={index}
+export const ProjectSummaryTable = ({
+  summary,
+  statuses,
+  categories,
+}: ProjectSummaryProps) => {
+  const headerFontSize = calculateHeaderFontSize(statuses.length);
+  const headerPadding = calculateHeaderPadding(statuses.length);
+
+  return (
+    <View style={styles.container}>
+      <View style={styles.card}>
+        <Text style={styles.title}>Project Overall Summary</Text>
+        <View style={styles.table}>
+          <View style={[styles.tableRow, styles.headerRow]}>
+            <Text
               style={[
-                styles.statusCell,
-                { flex: 1, backgroundColor: `${getStatusColor(status)}15` },
+                styles.headerCell,
+                {
+                  flex: 2,
+                  fontSize: headerFontSize,
+                  padding: headerPadding,
+                  paddingLeft: headerPadding,
+                  paddingRight: headerPadding / 2,
+                },
               ]}
             >
+              Total Units
+            </Text>
+            {statuses.map((status, index) => (
               <Text
-                style={{
-                  color: "#000000",
-                }}
+                key={index}
+                style={[
+                  styles.headerCell,
+                  {
+                    flex: 1,
+                    fontSize: headerFontSize,
+                    padding: headerPadding,
+                    paddingLeft: headerPadding / 2,
+                    paddingRight: headerPadding / 2,
+                  },
+                ]}
               >
-                {summary.statusCounts[status]}
+                {status !== getStatusHeaderAbbreviation(status)
+                  ? getStatusHeaderAbbreviation(status)
+                  : toProperCase(status)}
               </Text>
-              <Text style={styles.percentageText}>
-                ({summary.percentages[status]})
-              </Text>
-            </View>
-          ))}
+            ))}
+          </View>
+          <View style={styles.tableRow}>
+            <Text
+              style={[
+                styles.cell,
+                {
+                  flex: 2,
+                  fontWeight: "bold",
+                  padding: headerPadding,
+                  paddingLeft: headerPadding,
+                  paddingRight: headerPadding / 2,
+                },
+              ]}
+            >
+              {summary.totalUnits}
+            </Text>
+            {statuses.map((status, index) => (
+              <View
+                key={index}
+                style={[
+                  styles.statusCell,
+                  {
+                    flex: 1,
+                    backgroundColor: `${getStatusColor(status, categories)}15`,
+                    padding: headerPadding,
+                    paddingLeft: headerPadding / 2,
+                    paddingRight: headerPadding / 2,
+                  },
+                ]}
+              >
+                <Text
+                  style={{
+                    color: "#000000",
+                  }}
+                >
+                  {summary.statusCounts[status]}
+                </Text>
+                <Text style={styles.percentageText}>
+                  ({summary.percentages[status]})
+                </Text>
+              </View>
+            ))}
+          </View>
         </View>
       </View>
     </View>
-  </View>
-);
+  );
+};

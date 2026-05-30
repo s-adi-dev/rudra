@@ -1,5 +1,6 @@
 import { StyleSheet, Text, View } from "@react-pdf/renderer";
 import _ from "lodash";
+import { InventoryCategoryType } from "@/store/category";
 import { getStatusColor } from "./utils";
 
 const styles = StyleSheet.create({
@@ -32,16 +33,17 @@ const styles = StyleSheet.create({
 
 interface StatusLegendProps {
   statuses: Array<Exclude<string, "others">>;
+  categories: InventoryCategoryType[];
 }
 
-export const StatusLegend = ({ statuses }: StatusLegendProps) => (
+export const StatusLegend = ({ statuses, categories }: StatusLegendProps) => (
   <View style={styles.legend}>
     {statuses.map((status, index) => (
       <View key={index} style={styles.legendItem}>
         <View
           style={[
             styles.indicator,
-            { backgroundColor: getStatusColor(status) },
+            { backgroundColor: getStatusColor(status, categories) },
           ]}
         />
         <Text style={styles.legendText}>{_.startCase(status)}</Text>

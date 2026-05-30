@@ -19,6 +19,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 // Hooks and state
 import { toast } from "@/hooks/use-toast";
 import { ProjectType, useInventory } from "@/store/inventory";
+import { useCategories } from "@/store/category";
 
 // PDF Component
 import { ProjectSummaryPDF } from "@/pdf-templates/inventory-summary";
@@ -31,6 +32,7 @@ export function InventorySummaryReport() {
 
   // Inventory hooks
   const { useProjectsStructure, useProjectDetails } = useInventory();
+  const { data: categories } = useCategories().useCategoriesList();
   const { data: projectsData, isLoading: isLoadingProjects } =
     useProjectsStructure();
   const { data: projectData, isLoading: isLoadingProjectDetails } =
@@ -62,9 +64,14 @@ export function InventorySummaryReport() {
   // Generate PDF blob
   const generatePDFBlob = useCallback(
     async (project: ProjectType): Promise<Blob> => {
-      return await pdf(<ProjectSummaryPDF project={project} />).toBlob();
+      if (!categories) {
+        throw new Error("Categories are required to generate PDF");
+      }
+      return await pdf(
+        <ProjectSummaryPDF project={project} categories={categories} />,
+      ).toBlob();
     },
-    [],
+    [categories],
   );
 
   // Download PDF only

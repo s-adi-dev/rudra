@@ -8,7 +8,8 @@ import {
   View,
 } from "@react-pdf/renderer";
 import _ from "lodash";
-import { ALL_UNIT_STATUSES, getStatusColor } from "./utils";
+import { InventoryCategoryType } from "@/store/category";
+import { getStatusColor } from "./utils";
 
 const styles = StyleSheet.create({
   wrapper: {
@@ -41,12 +42,20 @@ const styles = StyleSheet.create({
 });
 
 interface PieChartProps {
-  data: Record<Exclude<string, "others">, number>;
+  data: Record<string, number>;
   size?: number;
   total: number;
+  statuses: string[];
+  categories: InventoryCategoryType[];
 }
 
-export const PieChart = ({ data, size = 140, total }: PieChartProps) => {
+export const PieChart = ({
+  data,
+  size = 140,
+  total,
+  statuses,
+  categories,
+}: PieChartProps) => {
   const borderWidth = 3;
   const radius = size / 2;
 
@@ -84,7 +93,7 @@ export const PieChart = ({ data, size = 140, total }: PieChartProps) => {
     if (value > 0) {
       const angle = (value / total) * 360;
       const path = getSlicePath(currentAngle, currentAngle + angle);
-      const fillColor = getStatusColor(status);
+      const fillColor = getStatusColor(status, categories);
       slices.push(
         <Path
           key={index}
@@ -149,14 +158,14 @@ export const PieChart = ({ data, size = 140, total }: PieChartProps) => {
 
       {/* Legend */}
       <View style={styles.legend}>
-        {ALL_UNIT_STATUSES.map((status, index) => {
+        {statuses.map((status, index) => {
           const value = data[status] || 0; // Provide default value if undefined
           return value > 0 ? (
             <View key={index} style={styles.legendItem}>
               <View
                 style={[
                   styles.legendColor,
-                  { backgroundColor: getStatusColor(status) },
+                  { backgroundColor: getStatusColor(status, categories) },
                 ]}
               />
               <Text style={styles.legendText}>

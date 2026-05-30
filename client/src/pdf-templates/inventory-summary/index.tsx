@@ -21,11 +21,12 @@ import RobotoBoldItalic from "@/fonts/roboto/Roboto-BoldItalic.ttf";
 import RobotoItalic from "@/fonts/roboto/Roboto-Italic.ttf";
 import RobotoRegular from "@/fonts/roboto/Roboto-Regular.ttf";
 import { ProjectType, WingType } from "@/store/inventory";
+import { InventoryCategoryType } from "@/store/category";
 import {
-  ALL_UNIT_STATUSES,
   calculatePercentages,
   calculateStatusCounts,
   collectAllUnits,
+  collectStatusesFromProject,
 } from "./utils";
 
 // Register fonts
@@ -125,8 +126,8 @@ const styles = StyleSheet.create({
 // Types for the summary data
 interface ProjectSummaryType {
   totalUnits: number;
-  statusCounts: Record<Exclude<string, "others">, number>;
-  percentages: Record<Exclude<string, "others">, string>;
+  statusCounts: Record<string, number>;
+  percentages: Record<string, string>;
 }
 
 interface WingSummaryDataItem {
@@ -138,13 +139,16 @@ interface WingSummaryDataItem {
 interface WingSummaryType {
   summaryData: WingSummaryDataItem[];
   totalRow: WingSummaryDataItem;
-  statusDistribution: Record<Exclude<string, "others">, number>;
+  statusDistribution: Record<string, number>;
 }
 
 // Data processing functions
-const generateProjectSummary = (project: ProjectType): ProjectSummaryType => {
+const generateProjectSummary = (
+  project: ProjectType,
+  statuses: string[],
+): ProjectSummaryType => {
   const allUnits = collectAllUnits(project);
-  const statusCounts = calculateStatusCounts(allUnits);
+  const statusCounts = calculateStatusCounts(allUnits, statuses);
   const percentages = calculatePercentages(statusCounts, allUnits.length);
 
   return {
@@ -154,7 +158,10 @@ const generateProjectSummary = (project: ProjectType): ProjectSummaryType => {
   };
 };
 
-const generateWingSummary = (wing: WingType): WingSummaryType => {
+const generateWingSummary = (
+  wing: WingType,
+  statuses: string[],
+): WingSummaryType => {
   // Collect all units from wing
   const allWingUnits = [
     ...wing.floors.flatMap((floor) => floor.units),
@@ -171,7 +178,7 @@ const generateWingSummary = (wing: WingType): WingSummaryType => {
     const configUnits = allWingUnits.filter(
       (unit) => unit.configuration === config,
     );
-    const statusCounts = calculateStatusCounts(configUnits);
+    const statusCounts = calculateStatusCounts(configUnits, statuses);
 
     return {
       configuration: config,
@@ -186,7 +193,7 @@ const generateWingSummary = (wing: WingType): WingSummaryType => {
     total: allWingUnits.length,
   };
 
-  ALL_UNIT_STATUSES.forEach((status) => {
+  statuses.forEach((status) => {
     totalRow[status] = summaryData.reduce(
       (sum, row) => sum + ((row[status] as number) || 0),
       0,
@@ -194,14 +201,21 @@ const generateWingSummary = (wing: WingType): WingSummaryType => {
   });
 
   // Status distribution for pie chart
-  const statusDistribution = calculateStatusCounts(allWingUnits);
+  const statusDistribution = calculateStatusCounts(allWingUnits, statuses);
 
   return { summaryData, totalRow, statusDistribution };
 };
 
 // Main PDF Component
-export const ProjectSummaryPDF = ({ project }: { project: ProjectType }) => {
-  const projectSummary = generateProjectSummary(project);
+export const ProjectSummaryPDF = ({
+  project,
+  categories,
+}: {
+  project: ProjectType;
+  categories: InventoryCategoryType[];
+}) => {
+  const dynamicStatuses = collectStatusesFromProject(project);
+  const projectSummary = generateProjectSummary(project, dynamicStatuses);
   const currentDate = new Date().toLocaleDateString("en-US", {
     year: "numeric",
     month: "long",
@@ -219,10 +233,17 @@ export const ProjectSummaryPDF = ({ project }: { project: ProjectType }) => {
         </View>
 
         {/* Status Legend */}
-        <StatusLegend statuses={ALL_UNIT_STATUSES} />
+        <StatusLegend
+          statuses={dynamicStatuses as Array<Exclude<string, "others">>}
+          categories={categories}
+        />
 
         {/* Project Overall Summary */}
-        <ProjectSummaryTable summary={projectSummary} />
+        <ProjectSummaryTable
+          summary={projectSummary}
+          statuses={dynamicStatuses}
+          categories={categories}
+        />
 
         {/* Project Bar Chart */}
         <View style={styles.container}>
@@ -233,12 +254,13 @@ export const ProjectSummaryPDF = ({ project }: { project: ProjectType }) => {
             data={projectSummary.statusCounts}
             width={500}
             height={200}
+            categories={categories}
           />
         </View>
 
         {/* Wing Summaries */}
         {project.wings.map((wing, wingIndex) => {
-          const wingSummary = generateWingSummary(wing);
+          const wingSummary = generateWingSummary(wing, dynamicStatuses);
 
           return (
             <View key={wingIndex} break>
@@ -254,11 +276,17 @@ export const ProjectSummaryPDF = ({ project }: { project: ProjectType }) => {
                 <PieChart
                   data={wingSummary.statusDistribution}
                   total={wingSummary.totalRow.total}
+                  statuses={dynamicStatuses}
+                  categories={categories}
                 />
               </View>
 
               {/* Wing Summary Table */}
-              <WingSummaryTable summary={wingSummary} />
+              <WingSummaryTable
+                summary={wingSummary}
+                statuses={dynamicStatuses}
+                categories={categories}
+              />
             </View>
           );
         })}

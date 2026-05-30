@@ -1,5 +1,6 @@
 import { G, Path, Rect, Svg, Text } from "@react-pdf/renderer";
 import _ from "lodash";
+import { InventoryCategoryType } from "@/store/category";
 import { getStatusColor } from "./utils";
 
 interface BarChartProps {
@@ -8,6 +9,7 @@ interface BarChartProps {
   height?: number;
   barWidth?: number;
   barGap?: number;
+  categories: InventoryCategoryType[];
 }
 
 export const BarChart = ({
@@ -16,6 +18,7 @@ export const BarChart = ({
   height = 200,
   barWidth = 35,
   barGap = 15,
+  categories,
 }: BarChartProps) => {
   const maxValue = Math.max(...Object.values(data)) || 1;
   const paddingTop = 20; // Space at the top for labels
@@ -42,7 +45,7 @@ export const BarChart = ({
         const barHeight = value * scale;
         const x = 65 + index * (barWidth + barGap);
         const y = height - 25 - barHeight;
-        const fillColor = getStatusColor(status);
+        const fillColor = getStatusColor(status, categories);
 
         // Calculate label position with a minimum distance from the top
         const labelY = Math.max(y - 10, paddingTop);
