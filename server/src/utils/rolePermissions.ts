@@ -7,12 +7,14 @@ export const defaultRootPermissions = [
     page: "Users",
     actions: [
       "view-users",
+      "view-deleted-users",
       "reset-password",
       "create-user",
       "lock-user",
       "view-details",
       "update-user",
       "delete-user",
+      "restore-user",
     ],
   },
   {

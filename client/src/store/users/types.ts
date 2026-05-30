@@ -9,6 +9,7 @@ export interface userType {
   email?: string;
   phone?: string;
   isLocked: boolean;
+  isDeleted: boolean;
   permissions?: object;
   settings?: {
     isRegistered?: boolean;
@@ -36,6 +37,7 @@ export interface UserQueryParams {
   limit?: number;
   role?: string;
   search?: string;
+  includeDeleted?: boolean;
 }
 
 export interface usersSummaryType {

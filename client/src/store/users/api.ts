@@ -13,18 +13,23 @@ export const userApi = {
     limit = 5,
     role,
     search,
+    includeDeleted = false,
   }: UserQueryParams = {}) => {
     const queryParams = new URLSearchParams({
       page: page.toString(),
       limit: limit.toString(),
+      includeDeleted: includeDeleted.toString(),
       ...(role && { role }),
       ...(search && { search }),
     });
     const response = await newRequest.get(`/user?${queryParams}`);
     return response.data as PaginatedResponse;
   },
-  getUsersSummary: async () => {
-    const response = await newRequest.get("/user/summary");
+  getUsersSummary: async (includeDeleted = true) => {
+    const queryParams = new URLSearchParams({
+      includeDeleted: includeDeleted.toString(),
+    });
+    const response = await newRequest.get(`/user/summary?${queryParams}`);
     return response.data as usersSummaryType[];
   },
   getUserById: async (userId: string) => {
@@ -64,6 +69,14 @@ export const userApi = {
   },
   deleteUser: async (userId: string) => {
     const response = await newRequest.delete(`/user/${userId}`);
+    return response.data;
+  },
+  softDeleteUser: async (userId: string) => {
+    const response = await newRequest.delete(`/user/${userId}/soft`);
+    return response.data;
+  },
+  restoreUser: async (userId: string) => {
+    const response = await newRequest.patch(`/user/${userId}/restore`);
     return response.data;
   },
 };

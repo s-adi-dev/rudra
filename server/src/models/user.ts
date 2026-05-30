@@ -12,6 +12,7 @@ export interface UserAccount extends Document {
   email?: string;
   phone?: string;
   isLocked: boolean;
+  isDeleted: boolean;
   permissions?: object;
   settings?: {
     isRegistered?: boolean;
@@ -30,6 +31,7 @@ const userSchema = new Schema<UserAccount>({
   email: { type: String },
   phone: { type: String },
   isLocked: { type: Boolean, default: false },
+  isDeleted: { type: Boolean, default: false },
   permissions: { type: Object, default: {} },
   settings: {
     isPassChange: { type: Boolean, default: false },

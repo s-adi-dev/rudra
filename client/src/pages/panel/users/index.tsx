@@ -23,6 +23,8 @@ export const UserList = () => {
     setCurrentPage,
     selectedRole,
     setSelectedRole,
+    includeDeleted,
+    setIncludeDeleted,
   } = useUserStore();
 
   // Local state for input value
@@ -41,9 +43,10 @@ export const UserList = () => {
       setSearchTerm(value); // Update local state immediately
       debouncedSetSearch(value); // Debounce the store update
       setIsFiltered(true);
-      if (value === "" && !selectedRole) setIsFiltered(false);
+      if (value === "" && !selectedRole && !includeDeleted)
+        setIsFiltered(false);
     },
-    [debouncedSetSearch, selectedRole],
+    [debouncedSetSearch, selectedRole, includeDeleted],
   );
 
   const handleRoleChange = useCallback(
@@ -55,18 +58,32 @@ export const UserList = () => {
     [setSelectedRole, setCurrentPage, setIsFiltered],
   );
 
+  const handleToggleDeleted = useCallback(() => {
+    setIncludeDeleted(!includeDeleted);
+    setCurrentPage(1);
+    setIsFiltered(true);
+  }, [includeDeleted, setIncludeDeleted, setCurrentPage]);
+
   const handleClearFilter = useCallback(() => {
     setSearchTerm("");
     debouncedSetSearch("");
     setSelectedRole(null);
+    setIncludeDeleted(false);
     setIsFiltered(false);
-  }, [setSearchTerm, debouncedSetSearch, setSelectedRole, setIsFiltered]);
+  }, [
+    setSearchTerm,
+    debouncedSetSearch,
+    setSelectedRole,
+    setIncludeDeleted,
+    setIsFiltered,
+  ]);
 
   const { data, isLoading, error } = useUsers({
     page: currentPage,
     limit: itemsPerPage,
     role: selectedRole || undefined,
     search: searchQuery, // This uses the debounced value from store
+    includeDeleted: includeDeleted,
   });
 
   const paginationData = data && {
@@ -88,6 +105,8 @@ export const UserList = () => {
     onRoleChange: handleRoleChange,
     isFiltered: isFiltered,
     onClearFilter: handleClearFilter,
+    includeDeleted: includeDeleted,
+    onToggleDeleted: handleToggleDeleted,
   };
 
   useEffect(() => {

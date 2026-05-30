@@ -14,7 +14,7 @@ import { hasPermission } from "@/hooks/use-role.ts";
 import { useAuth } from "@/store/auth";
 import { RoleArrayType, useRoles } from "@/store/role";
 import { toProperCase } from "@/utils/func/strUtils";
-import { FilterX } from "lucide-react";
+import { FilterX, Eye, EyeOff } from "lucide-react";
 import { UserAddButton } from "./user-add-button";
 
 interface PaginationProps {
@@ -30,6 +30,8 @@ interface FilterProps {
   onRoleChange: (value: string) => void;
   isFiltered: boolean;
   onClearFilter: () => void;
+  includeDeleted?: boolean;
+  onToggleDeleted?: () => void;
 }
 
 interface RecordInfoProps {
@@ -45,6 +47,13 @@ interface UserHeaderProp {
 }
 
 export const UserHeader = ({ filter, pagination }: UserHeaderProp) => {
+  const { combinedRole } = useAuth(false);
+  const showDeletedToggle = hasPermission(
+    combinedRole,
+    "Users",
+    "view-deleted-users",
+  );
+
   return (
     <div className="w-full flex flex-wrap gap-3 items-center justify-around md:justify-between mb-3">
       <div className="flex gap-3 sm:gap-2 justify-around flex-wrap sm:flex-nowrap sm:justify-start">
@@ -61,6 +70,31 @@ export const UserHeader = ({ filter, pagination }: UserHeaderProp) => {
         <RoleSelect filter={filter} />
 
         <span className="flex gap-2">
+          {/* Show deleted users toggle */}
+          {showDeletedToggle && (
+            <Tooltip
+              content={
+                filter.includeDeleted
+                  ? "Hide deleted users"
+                  : "Show deleted users"
+              }
+            >
+              <Button
+                className="flex-shrink-0"
+                onClick={filter.onToggleDeleted}
+                variant={filter.includeDeleted ? "default" : "outline"}
+                size="icon"
+                aria-label="Toggle deleted users"
+              >
+                {filter.includeDeleted ? (
+                  <Eye size={20} />
+                ) : (
+                  <EyeOff size={20} />
+                )}
+              </Button>
+            </Tooltip>
+          )}
+
           {/* Clear filters button */}
           {filter.isFiltered && (
             <Tooltip content="Clear filter">

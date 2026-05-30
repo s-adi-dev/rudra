@@ -47,6 +47,7 @@ export const InstantUserForm = ({
     lastName: "",
     roles: [],
     isLocked: false,
+    isDeleted: false,
     settings: {
       isRegistered: false,
       isPassChange: true,

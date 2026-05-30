@@ -31,7 +31,7 @@ const verifyToken = async (req: Request, res: Response, next: NextFunction) => {
     const decoded = jwt.verify(token, JWT_SECRET) as Payload;
 
     // Find the user in database
-    const user = await User.findById(decoded._id).select("-password");
+    const user = await User.findOne({ _id: decoded._id, isDeleted: { $ne: true } }).select("-password");
     if (!user) {
       res.clearCookie("Access_Token");
       return next(createError(401, "User not found"));

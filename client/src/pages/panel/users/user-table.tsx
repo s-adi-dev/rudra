@@ -67,7 +67,14 @@ export const UserTable = ({ userList, firstIndex }: UserTableProps) => {
             </TableRow>
           ) : (
             userList.map((user, index) => (
-              <TableRow key={user._id} className="hover:bg-card">
+              <TableRow
+                key={user._id}
+                className={
+                  user.isDeleted
+                    ? "bg-red-50 hover:bg-red-100 dark:text-black"
+                    : "hover:bg-card"
+                }
+              >
                 <TableCell>{firstIndex + index + 1}</TableCell>
                 <TableCell className="whitespace-nowrap">
                   {user.firstName + " " + user.lastName}

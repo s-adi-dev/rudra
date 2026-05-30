@@ -17,6 +17,7 @@ class AuthController {
 
       const user = await User.findOne({
         $or: [{ email: loginId }, { username: loginId }],
+        isDeleted: { $ne: true },
       });
 
       if (!user) {
@@ -139,7 +140,12 @@ class AuthController {
         return next(createError(500, "Unauthorized user"));
       }
 
-      const user = await User.findById(req.user._id).select("-password").lean();
+      const user = await User.findOne({
+        _id: req.user._id,
+        isDeleted: { $ne: true },
+      })
+        .select("-password")
+        .lean();
       if (!user) {
         return next(createError(500, "User not found in request"));
       }

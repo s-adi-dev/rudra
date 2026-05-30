@@ -51,6 +51,7 @@ export const UserForm = ({ open, onOpenChange }: UserFormProps) => {
     dob: undefined,
     roles: [],
     isLocked: false,
+    isDeleted: false,
     settings: {
       isRegistered: true,
       isPassChange: isDefaultPass,

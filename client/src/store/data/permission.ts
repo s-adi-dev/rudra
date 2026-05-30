@@ -15,6 +15,8 @@ export const AdminPermissions: Permission[] = [
       "view-details",
       "update-user",
       "delete-user",
+      "view-deleted-users",
+      "restore-user",
     ],
   },
   {
@@ -162,6 +164,8 @@ export const availablePermissionPages: AvailablePermissionPage[] = [
       { value: "delete-user", label: "Delete user" },
       { value: "reset-password", label: "Reset user password" },
       { value: "lock-user", label: "Lock users" },
+      { value: "view-deleted-users", label: "View deleted users" },
+      { value: "restore-user", label: "Restore deleted users" },
     ],
   },
   {

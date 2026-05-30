@@ -8,6 +8,7 @@ import {
   KeyRound,
   LockKeyhole,
   LockKeyholeOpen,
+  RotateCcw,
   Save,
   SquarePen,
   Trash2,
@@ -17,6 +18,7 @@ interface UserActionButtonsProps {
   isEditable: boolean;
   userData: Partial<userType>;
   onDelete: () => void;
+  onRestore: () => void;
   onUpdate: () => void;
   onResetPassword: () => void;
   onLockUser: () => void;
@@ -26,6 +28,7 @@ export const UserActionButtons = ({
   isEditable,
   userData,
   onDelete,
+  onRestore,
   onUpdate,
   onResetPassword,
   onLockUser,
@@ -48,16 +51,30 @@ export const UserActionButtons = ({
     hasAnyAccess && (
       <>
         {showDeleteButton && (
-          <Tooltip content="Delete user">
-            <Button
-              variant="destructive"
-              size="icon"
-              className="mx-1 text-primary"
-              onClick={onDelete}
-            >
-              <Trash2 />
-            </Button>
-          </Tooltip>
+          <>
+            {!userData.isDeleted ? (
+              <Tooltip content="Soft delete user">
+                <Button
+                  variant="destructive"
+                  size="icon"
+                  className="mx-1 text-primary"
+                  onClick={onDelete}
+                >
+                  <Trash2 />
+                </Button>
+              </Tooltip>
+            ) : (
+              <Tooltip content="Restore user">
+                <Button
+                  size="icon"
+                  className="mx-1 text-primary bg-emerald-600 hover:bg-emerald-700"
+                  onClick={onRestore}
+                >
+                  <RotateCcw />
+                </Button>
+              </Tooltip>
+            )}
+          </>
         )}
 
         {showEditButton && (

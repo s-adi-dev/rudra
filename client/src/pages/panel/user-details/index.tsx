@@ -62,6 +62,7 @@ function UserDetails() {
     dialog,
     handleUpdate,
     handleDelete,
+    handleRestore,
     handleResetPassword,
     handleLock,
   } = useUserDialogs({
@@ -165,6 +166,7 @@ function UserDetails() {
             isEditable={isEditable}
             userData={userData}
             onDelete={handleDelete}
+            onRestore={handleRestore}
             onUpdate={handleUpdate}
             onResetPassword={handleResetPassword}
             onLockUser={handleLock}

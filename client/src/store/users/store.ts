@@ -6,12 +6,14 @@ interface UserState {
   currentPage: number;
   itemsPerPage: number;
   selectedRole: string | null;
-  searchQuery: string; // Add search query state
+  searchQuery: string;
+  includeDeleted: boolean;
   setSelectedUserId: (userId: string | null) => void;
   setCurrentPage: (page: number) => void;
   setItemsPerPage: (limit: number) => void;
   setSelectedRole: (role: string | null) => void;
-  setSearchQuery: (query: string) => void; // Add search query setter
+  setSearchQuery: (query: string) => void;
+  setIncludeDeleted: (include: boolean) => void;
 }
 
 const useUserStore = create<UserState>()(
@@ -21,12 +23,14 @@ const useUserStore = create<UserState>()(
       currentPage: 1,
       itemsPerPage: 5,
       selectedRole: null,
-      searchQuery: "", // Initialize search query
+      searchQuery: "",
+      includeDeleted: false,
       setSelectedUserId: (userId) => set({ selectedUserId: userId }),
       setCurrentPage: (page) => set({ currentPage: page }),
       setItemsPerPage: (limit) => set({ itemsPerPage: limit }),
       setSelectedRole: (role) => set({ selectedRole: role }),
-      setSearchQuery: (query) => set({ searchQuery: query }), // Add search query setter
+      setSearchQuery: (query) => set({ searchQuery: query }),
+      setIncludeDeleted: (include) => set({ includeDeleted: include }),
     }),
     {
       name: "user-store",

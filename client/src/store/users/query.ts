@@ -78,3 +78,23 @@ export const useDeleteUser = () => {
     },
   });
 };
+
+export const useSoftDeleteUser = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: userApi.softDeleteUser,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["users"] });
+    },
+  });
+};
+
+export const useRestoreUser = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: userApi.restoreUser,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["users"] });
+    },
+  });
+};

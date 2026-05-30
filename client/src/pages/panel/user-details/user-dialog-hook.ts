@@ -1,11 +1,15 @@
 import { useAlertDialog } from "@/components/custom ui/alertDialog";
 import { useToast } from "@/hooks/use-toast";
-import { useDeleteUser, useResetPassword, useUpdateUser } from "@/store/users";
+import {
+  useSoftDeleteUser,
+  useRestoreUser,
+  useResetPassword,
+  useUpdateUser,
+} from "@/store/users";
 import { userType } from "@/store/users";
 import { FullUserSchema } from "@/utils/zod-schema/user";
 import { formatZodErrors } from "@/utils/func/zodUtils";
 import { CustomAxiosError } from "@/utils/types/axios";
-import { useNavigate } from "react-router-dom";
 
 interface UseUserDialogsProps {
   userId: string;
@@ -34,10 +38,10 @@ export const useUserDialogs = ({
   setIsCredentialsOpen,
   hasChanges,
 }: UseUserDialogsProps) => {
-  const navigate = useNavigate();
   const { toast } = useToast();
   const updateUser = useUpdateUser();
-  const deleteUser = useDeleteUser();
+  const softDeleteUser = useSoftDeleteUser();
+  const restoreUser = useRestoreUser();
   const resetPassword = useResetPassword();
 
   const dialog = useAlertDialog({
@@ -116,24 +120,61 @@ export const useUserDialogs = ({
       config: {
         iconName: "Trash2",
         alertType: "Danger",
-        title: "Delete User",
-        description: `Are you sure you want to delete ${username}?`,
-        actionLabel: "Delete",
+        title: "Soft Delete User",
+        description: `Are you sure you want to soft delete ${username}? This action can be reversed.`,
+        actionLabel: "Soft Delete",
       },
       onAction: async () => {
         try {
-          await deleteUser.mutateAsync(userId);
+          await softDeleteUser.mutateAsync(userId);
           toast({
             title: "Success",
-            description: "User deleted successfully",
+            description: "User soft deleted successfully",
             variant: "success",
           });
-          navigate("/panel/users");
+          setUserData((prev: Partial<userType>) => ({
+            ...prev,
+            isDeleted: true,
+          }));
         } catch (error) {
           const err = error as CustomAxiosError;
           toast({
             title: "Error",
-            description: err.response?.data.error || "Failed to delete user",
+            description:
+              err.response?.data.error || "Failed to soft delete user",
+            variant: "destructive",
+          });
+        }
+      },
+    });
+  };
+
+  const handleRestore = () => {
+    dialog.show({
+      config: {
+        iconName: "RotateCcw",
+        alertType: "Success",
+        title: "Restore User",
+        description: `Are you sure you want to restore ${username}?`,
+        actionLabel: "Restore",
+      },
+      onAction: async () => {
+        try {
+          await restoreUser.mutateAsync(userId);
+          toast({
+            title: "Success",
+            description: "User restored successfully",
+            variant: "success",
+          });
+          setUserData((prev: Partial<userType>) => ({
+            ...prev,
+            isDeleted: false,
+          }));
+        } catch (error) {
+          const err = error as CustomAxiosError;
+          toast({
+            title: "Error",
+            description: err.response?.data.error || "Failed to restore user",
             variant: "destructive",
           });
         }
@@ -228,6 +269,7 @@ export const useUserDialogs = ({
     dialog,
     handleUpdate,
     handleDelete,
+    handleRestore,
     handleResetPassword,
     handleLock,
   };

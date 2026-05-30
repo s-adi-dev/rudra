@@ -24,6 +24,12 @@ router.patch("/:id", verifyToken, UserController.updateUser);
 // Change password
 router.patch("/:id/password", verifyToken, UserController.changePassword);
 
+// Soft delete user
+router.delete("/:id/soft", verifyToken, UserController.softDeleteUser);
+
+// Restore user
+router.patch("/:id/restore", verifyToken, UserController.restoreUser);
+
 // Delete user
 router.delete("/:id", verifyToken, UserController.deleteUser);
 
