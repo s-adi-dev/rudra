@@ -97,7 +97,12 @@ export const CancellationForm = () => {
 
   // Helper Functions
   const getFilteredProjectsData = () => {
-    const flatStatusFilter: string[] = ["booked", "registered", "investor"];
+    const flatStatusFilter: string[] = [
+      "booked",
+      "registered",
+      "investor",
+      "self-funding",
+    ];
     if (!projectsData?.data) return [];
 
     return projectsData.data
