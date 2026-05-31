@@ -9,7 +9,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { AuditLog } from "@/store/audit";
-import { splitCamelCaseWords, toProperCase } from "@/utils/func/strUtils";
+import { splitCamelCaseWords } from "@/utils/func/strUtils";
 
 interface AuditLogTableProps {
   logs: AuditLog[];
@@ -66,7 +66,7 @@ export function AuditLogTable({ logs }: AuditLogTableProps) {
                 </TableCell>
                 <TableCell>
                   <Badge variant={getStatus(log.event.action)}>
-                    {toProperCase(log.event.action)}
+                    {log.event.action.toUpperCase()}
                   </Badge>
                 </TableCell>
                 <TableCell>{splitCamelCaseWords(log.source)}</TableCell>

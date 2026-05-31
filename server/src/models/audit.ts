@@ -2,7 +2,7 @@ import mongoose, { Schema, Document } from "mongoose";
 
 export interface AuditLog extends Document {
   event: {
-    action: "create" | "update" | "delete" | "locked" | "unlocked";
+    action: "create" | "update" | "delete" | "locked" | "unlocked" | "download" | "preview";
     changes: any;
   };
   actor: {
@@ -10,7 +10,7 @@ export interface AuditLog extends Document {
     username: string;
     roles?: string[];
   };
-  source: string; // Entity affected (e.g., "Users", "Task")
+  source: string; // Entity affected (e.g., "Users", "Task", "Report")
   description: string;
   timestamp: Date;
 }
@@ -21,7 +21,7 @@ const AuditLogSchema = new Schema<AuditLog>(
       action: {
         type: String,
         required: true,
-        enum: ["create", "update", "delete", "locked", "unlocked"],
+        enum: ["create", "update", "delete", "locked", "unlocked", "download", "preview"],
       },
 
       changes: { type: Schema.Types.Mixed },

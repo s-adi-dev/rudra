@@ -10,22 +10,28 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { hasPermission } from "@/hooks/use-role";
-import { useAuth } from "@/store/auth";
 import { useClients, useClientStore } from "@/store/client";
 import { useClientPartners } from "@/store/client-partner";
 import { requirementOptions } from "@/store/data/options";
 import { useInventory } from "@/store/inventory";
 import { useUsersSummary } from "@/store/users";
+import { logReportAction } from "@/utils/report-audit-logger";
+import type { userType } from "@/store/users/types";
+import type { CombinedRoleType } from "@/store/role/types";
 import { Download, FileSpreadsheet, Loader2 } from "lucide-react";
 import { useEffect } from "react";
 import { ClientFilter } from "../../client/client-filter";
 import { exportClientToExcel } from "./excel";
 
-export function ClientReport() {
+interface ClientReportProps {
+  user: userType | null;
+  combinedRole: CombinedRoleType | null;
+}
+
+export function ClientReport({ user, combinedRole }: ClientReportProps) {
   // Fetch data from stores
   const { useClientsList } = useClients();
   const { filters, resetFilters } = useClientStore();
-  const { combinedRole } = useAuth(true);
   const { data, isFetching } = useClientsList({
     ...filters,
     page: 1,
@@ -73,8 +79,20 @@ export function ClientReport() {
   };
 
   // Handle export action
-  const handleDownload = () => {
-    if (data?.clients && data.clients.length > 0) {
+  const handleDownload = async () => {
+    if (data?.clients && data.clients.length > 0 && user) {
+      // Log the download action
+      await logReportAction(
+        user._id,
+        user.username || "",
+        {
+          action: "download",
+          reportType: "Client Report",
+          description: `Downloaded Client Report with ${data.clients.length} records`,
+        },
+        combinedRole?.roles || [],
+      );
+
       exportClientToExcel(data.clients, lists, canViewContactInfo);
     } else {
       console.log("No client data available");

@@ -9,11 +9,19 @@ import {
 } from "@/components/ui/card";
 import { useRoles } from "@/store/role";
 import { useUsers } from "@/store/users";
+import { logReportAction } from "@/utils/report-audit-logger";
+import type { userType } from "@/store/users/types";
+import type { CombinedRoleType } from "@/store/role/types";
 import { Download, FileSpreadsheet } from "lucide-react";
 import { useMemo, useState } from "react";
 import { exportUsersToExcel } from "./excel";
 
-export function UserReport() {
+interface UserReportProps {
+  user: userType | null;
+  combinedRole: CombinedRoleType | null;
+}
+
+export function UserReport({ user, combinedRole }: UserReportProps) {
   // Fetch data from stores
   const { rolesArray: roles } = useRoles();
   const { data, isLoading } = useUsers({
@@ -46,8 +54,20 @@ export function UserReport() {
   }, [data?.users, selectedRoles]);
 
   // Handle export action
-  const handleDownload = () => {
-    if (filteredUsers.length > 0) {
+  const handleDownload = async () => {
+    if (filteredUsers.length > 0 && user) {
+      // Log the download action
+      await logReportAction(
+        user._id,
+        user.username || "",
+        {
+          action: "download",
+          reportType: "User Report",
+          description: `Downloaded User Report with ${filteredUsers.length} records`,
+        },
+        combinedRole?.roles || [],
+      );
+
       exportUsersToExcel(filteredUsers);
     } else {
       console.log("No user data available for export");

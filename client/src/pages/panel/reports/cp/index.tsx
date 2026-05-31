@@ -8,10 +8,21 @@ import {
 } from "@/components/ui/card";
 import { useClientPartners } from "@/store/client-partner";
 import { useUsersSummary } from "@/store/users";
+import { logReportAction } from "@/utils/report-audit-logger";
+import type { userType } from "@/store/users/types";
+import type { CombinedRoleType } from "@/store/role/types";
 import { Download, FileSpreadsheet } from "lucide-react";
 import { exportCpToExcel } from "./excel";
 
-export function ClientPartnerReport() {
+interface ClientPartnerReportProps {
+  user: userType | null;
+  combinedRole: CombinedRoleType | null;
+}
+
+export function ClientPartnerReport({
+  user,
+  combinedRole,
+}: ClientPartnerReportProps) {
   // Fetch data from stores
   const { useClientPartnersList } = useClientPartners();
   const { data: managers, isLoading: isManagerLoading } = useUsersSummary();
@@ -22,8 +33,20 @@ export function ClientPartnerReport() {
   });
 
   // Handle export action
-  const handleDownload = () => {
-    if (data && data?.clientPartners.length > 0) {
+  const handleDownload = async () => {
+    if (data && data?.clientPartners.length > 0 && user) {
+      // Log the download action
+      await logReportAction(
+        user._id,
+        user.username || "",
+        {
+          action: "download",
+          reportType: "CP Report",
+          description: `Downloaded CP Report with ${data.clientPartners.length} records`,
+        },
+        combinedRole?.roles || [],
+      );
+
       exportCpToExcel(data?.clientPartners, managers);
     } else {
       console.log("No client partner data available for export");

@@ -19,11 +19,19 @@ import {
 } from "@/components/ui/select";
 import { useInventory } from "@/store/inventory";
 import { useRegisteredClients } from "@/store/registered-clients";
+import { logReportAction } from "@/utils/report-audit-logger";
+import type { userType } from "@/store/users/types";
+import type { CombinedRoleType } from "@/store/role/types";
 import { Download, FileSpreadsheet, Loader2 } from "lucide-react";
 import { useState } from "react";
 import { exportRegisteredClientsToExcel } from "./excel";
 
-export function RegisteredClientsReport() {
+interface RegisteredClientsReportProps {
+  user: userType | null;
+  combinedRole: CombinedRoleType | null;
+}
+
+export function RegisteredClientsReport({ user, combinedRole }: RegisteredClientsReportProps) {
   const [selectedProject, setSelectedProject] = useState<string>("");
 
   // Fetch projects list
@@ -38,11 +46,24 @@ export function RegisteredClientsReport() {
   });
 
   // Handle export action
-  const handleDownload = () => {
-    if (data?.data && data.data.length > 0) {
+  const handleDownload = async () => {
+    if (data?.data && data.data.length > 0 && user) {
       const projectName =
         projects.find((p) => p.name === selectedProject)?.name ||
         selectedProject;
+
+      // Log the download action
+      await logReportAction(
+        user._id,
+        user.username || "",
+        {
+          action: "download",
+          reportType: "Payment Report",
+          description: `Downloaded Payment Report for ${projectName} with ${data.data.length} records`,
+        },
+        combinedRole?.roles || [],
+      );
+
       exportRegisteredClientsToExcel(data.data, projectName);
     } else {
       console.log("No registered clients data available");

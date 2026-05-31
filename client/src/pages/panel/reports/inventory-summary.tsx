@@ -20,11 +20,20 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "@/hooks/use-toast";
 import { ProjectType, useInventory } from "@/store/inventory";
 import { useCategories } from "@/store/category";
+import { logReportAction } from "@/utils/report-audit-logger";
+import type { userType } from "@/store/users/types";
+import type { CombinedRoleType } from "@/store/role/types";
 
 // PDF Component
 import { ProjectSummaryPDF } from "@/pdf-templates/inventory-summary";
 
-export function InventorySummaryReport() {
+interface InventorySummaryReportProps {
+  user: userType | null;
+  combinedRole: CombinedRoleType | null;
+}
+
+export function InventorySummaryReport({ user, combinedRole }: InventorySummaryReportProps) {
+
   // State hooks
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   const [selectedProject, setSelectedProject] = useState("");
@@ -83,6 +92,20 @@ export function InventorySummaryReport() {
       setError(null);
 
       try {
+        // Log the download action
+        if (user) {
+          await logReportAction(
+            user._id,
+            user.username || "",
+            {
+              action: "download",
+              reportType: `Inventory Summary - ${project.name}`,
+              description: `Downloaded Inventory Summary PDF for ${project.name}`,
+            },
+            combinedRole?.roles || [],
+          );
+        }
+
         // Create a blob from the PDF component
         const blob = await generatePDFBlob(project);
 
@@ -126,7 +149,7 @@ export function InventorySummaryReport() {
         setIsGeneratingPDF(false);
       }
     },
-    [generatePDFBlob, generateFilename],
+    [generatePDFBlob, generateFilename, user, combinedRole],
   );
 
   // Preview PDF only
@@ -138,6 +161,20 @@ export function InventorySummaryReport() {
       setError(null);
 
       try {
+        // Log the preview action
+        if (user) {
+          await logReportAction(
+            user._id,
+            user.username || "",
+            {
+              action: "preview",
+              reportType: `Inventory Summary - ${project.name}`,
+              description: `Previewed Inventory Summary PDF for ${project.name}`,
+            },
+            combinedRole?.roles || [],
+          );
+        }
+
         // Create a blob from the PDF component
         const blob = await generatePDFBlob(project);
 
@@ -187,7 +224,7 @@ export function InventorySummaryReport() {
         setIsGeneratingPDF(false);
       }
     },
-    [generatePDFBlob],
+    [generatePDFBlob, user, combinedRole],
   );
 
   // Handle download button click

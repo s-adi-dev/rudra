@@ -12,12 +12,20 @@ import {
 import { useClientBookings } from "@/store/client-booking/query";
 import { useBookingStore } from "@/store/client-booking/store";
 import { useUsersSummary } from "@/store/users";
+import { logReportAction } from "@/utils/report-audit-logger";
+import type { userType } from "@/store/users/types";
+import type { CombinedRoleType } from "@/store/role/types";
 import { Download, FileSpreadsheet, Loader2 } from "lucide-react";
 import { useEffect } from "react";
 import { BookingFilter } from "../../booking/booking-filter";
 import { exportBookingToExcel } from "./excel";
 
-export function BookingReport() {
+interface BookingReportProps {
+  user: userType | null;
+  combinedRole: CombinedRoleType | null;
+}
+
+export function BookingReport({ user, combinedRole }: BookingReportProps) {
   // Fetch data from stores
   const { filters, resetFilters } = useBookingStore();
   const { data, isFetching } = useClientBookings({
@@ -46,8 +54,20 @@ export function BookingReport() {
   useEffect(() => resetFilters(), []);
 
   // Handle export action
-  const handleDownload = () => {
-    if (data?.data && data.data.length > 0 && managers) {
+  const handleDownload = async () => {
+    if (data?.data && data.data.length > 0 && managers && user) {
+      // Log the download action
+      await logReportAction(
+        user._id,
+        user.username || "",
+        {
+          action: "download",
+          reportType: "Booking Report",
+          description: `Downloaded Booking Report with ${data.data.length} records`,
+        },
+        combinedRole?.roles || [],
+      );
+
       exportBookingToExcel(data.data, managers);
     } else {
       console.log("No client data available");

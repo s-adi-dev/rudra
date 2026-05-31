@@ -15,7 +15,7 @@ import { RegisteredClientsReport } from "./registered-clients.ts";
 const Reports = () => {
   // Hooks
   const { setBreadcrumbs } = useBreadcrumb();
-  const { combinedRole } = useAuth(true);
+  const { combinedRole, user } = useAuth(true);
 
   // Helper functions
   const showReport = (perm: string) => {
@@ -33,18 +33,32 @@ const Reports = () => {
 
   return (
     <div className="w-full grid place-items-center grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 p-6">
-      {showReport("inventory-report") && <InventoryReport />}
-      {showReport("inventory-summary-report") && <InventorySummaryReport />}
-      {showReport("inventory-summary-report") && (
-        <InventorySummaryExcelReport />
+      {showReport("inventory-report") && (
+        <InventoryReport user={user} combinedRole={combinedRole} />
       )}
-      {showReport("booking-report") && <BookingReport />}
-      {showReport("user-report") && <UserReport />}
-      {showReport("client-report") && <ClientReport />}
-      {showReport("cp-report") && <ClientPartnerReport />}
-      {showReport("sales-range-report") && <SalesManagerReport />}
+      {showReport("inventory-summary-report") && (
+        <InventorySummaryReport user={user} combinedRole={combinedRole} />
+      )}
+      {showReport("inventory-summary-report") && (
+        <InventorySummaryExcelReport user={user} combinedRole={combinedRole} />
+      )}
+      {showReport("booking-report") && (
+        <BookingReport user={user} combinedRole={combinedRole} />
+      )}
+      {showReport("user-report") && (
+        <UserReport user={user} combinedRole={combinedRole} />
+      )}
+      {showReport("client-report") && (
+        <ClientReport user={user} combinedRole={combinedRole} />
+      )}
+      {showReport("cp-report") && (
+        <ClientPartnerReport user={user} combinedRole={combinedRole} />
+      )}
+      {showReport("sales-range-report") && (
+        <SalesManagerReport user={user} combinedRole={combinedRole} />
+      )}
       {showReport("registered-clients-payment-report") && (
-        <RegisteredClientsReport />
+        <RegisteredClientsReport user={user} combinedRole={combinedRole} />
       )}
     </div>
   );

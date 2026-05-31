@@ -92,7 +92,15 @@ export default function AuditLogPage() {
     }
   };
 
-  const actionOptions = ["create", "update", "delete", "locked", "unlocked"];
+  const actionOptions = [
+    "create",
+    "update",
+    "delete",
+    "download",
+    "preview",
+    "locked",
+    "unlocked",
+  ];
   const sourceOptions = sources?.sources || [];
 
   if (isLoading) return <AuditSkeleton />;

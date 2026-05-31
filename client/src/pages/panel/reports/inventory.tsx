@@ -21,11 +21,19 @@ import { toast } from "@/hooks/use-toast";
 import type { InventoryCategoryType } from "@/store/category";
 import { useCategories } from "@/store/category";
 import { ProjectType, useInventory } from "@/store/inventory";
+import { logReportAction } from "@/utils/report-audit-logger";
+import type { userType } from "@/store/users/types";
+import type { CombinedRoleType } from "@/store/role/types";
 
 // PDF Component
 import { AvailabilityPDF } from "@/pdf-templates/inventory-chart";
 
-export function InventoryReport() {
+interface InventoryReportProps {
+  user: userType | null;
+  combinedRole: CombinedRoleType | null;
+}
+
+export function InventoryReport({ user, combinedRole }: InventoryReportProps) {
   // State hooks
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   const [isPreviewingPDF, setIsPreviewingPDF] = useState(false);
@@ -98,6 +106,20 @@ export function InventoryReport() {
           <AvailabilityPDF project={project} categories={sortedCategories} />,
         ).toBlob();
 
+        // Log the download action
+        if (user) {
+          await logReportAction(
+            user._id,
+            user.username || "",
+            {
+              action: "download",
+              reportType: `Inventory Report - ${project.name}`,
+              description: `Downloaded Inventory Availability Chart for ${project.name}`,
+            },
+            combinedRole?.roles || [],
+          );
+        }
+
         // Create a URL for the blob
         const url = URL.createObjectURL(blob);
 
@@ -138,7 +160,7 @@ export function InventoryReport() {
         setIsGeneratingPDF(false);
       }
     },
-    [sortedCategories, generateFilename],
+    [sortedCategories, generateFilename, user, combinedRole],
   );
 
   // Preview
@@ -161,6 +183,20 @@ export function InventoryReport() {
         const blob = await pdf(
           <AvailabilityPDF project={project} categories={sortedCategories} />,
         ).toBlob();
+
+        // Log the preview action
+        if (user) {
+          await logReportAction(
+            user._id,
+            user.username || "",
+            {
+              action: "preview",
+              reportType: `Inventory Report - ${project.name}`,
+              description: `Previewed Inventory Availability Chart for ${project.name}`,
+            },
+            combinedRole?.roles || [],
+          );
+        }
 
         const url = URL.createObjectURL(blob);
         const newWindow = window.open(url, "_blank");
@@ -198,7 +234,7 @@ export function InventoryReport() {
         setIsPreviewingPDF(false);
       }
     },
-    [sortedCategories],
+    [sortedCategories, user, combinedRole],
   );
 
   // Button states

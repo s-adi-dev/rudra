@@ -1,6 +1,9 @@
 // components/reports/InventorySummaryExcelReport.tsx
 import { toast } from "@/hooks/use-toast";
 import { ProjectType, useInventory } from "@/store/inventory";
+import { logReportAction } from "@/utils/report-audit-logger";
+import type { userType } from "@/store/users/types";
+import type { CombinedRoleType } from "@/store/role/types";
 import { Download, FileSpreadsheet, Loader2 } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import { buildResidentialStatusSummaryWorkbook } from "./excel";
@@ -19,7 +22,12 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { useCategories } from "@/store/category";
 
-export function InventorySummaryExcelReport() {
+interface InventorySummaryExcelReportProps {
+  user: userType | null;
+  combinedRole: CombinedRoleType | null;
+}
+
+export function InventorySummaryExcelReport({ user, combinedRole }: InventorySummaryExcelReportProps) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [selectedProject, setSelectedProject] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -69,6 +77,20 @@ export function InventorySummaryExcelReport() {
       setIsGenerating(true);
       setError(null);
       try {
+        // Log the download action
+        if (user) {
+          await logReportAction(
+            user._id,
+            user.username || "",
+            {
+              action: "download",
+              reportType: `Inventory Status Summary - ${project.name}`,
+              description: `Downloaded Inventory Status Summary Excel for ${project.name}`,
+            },
+            combinedRole?.roles || [],
+          );
+        }
+
         const blob = await generateExcelBlob(project);
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
@@ -100,7 +122,7 @@ export function InventorySummaryExcelReport() {
         setIsGenerating(false);
       }
     },
-    [generateExcelBlob, generateFilename],
+    [generateExcelBlob, generateFilename, user, combinedRole],
   );
 
   const handleDownloadClick = useCallback(() => {

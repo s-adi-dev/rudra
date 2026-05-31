@@ -11,13 +11,24 @@ import {
 import { useInventory } from "@/store/inventory";
 import { useSalesManagerStats } from "@/store/target/query";
 import { useUsersSummary } from "@/store/users";
+import { logReportAction } from "@/utils/report-audit-logger";
+import type { userType } from "@/store/users/types";
+import type { CombinedRoleType } from "@/store/role/types";
 import { format } from "date-fns";
 import { Download, FileSpreadsheet } from "lucide-react";
 import { useState } from "react";
 import { DateRange } from "react-day-picker";
 import { exportSalesManagerToExcel } from "./excel";
 
-export function SalesManagerReport() {
+interface SalesManagerReportProps {
+  user: userType | null;
+  combinedRole: CombinedRoleType | null;
+}
+
+export function SalesManagerReport({
+  user,
+  combinedRole,
+}: SalesManagerReportProps) {
   // Date range state - default to last 30 days
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
 
@@ -42,8 +53,20 @@ export function SalesManagerReport() {
     (a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }),
   );
   // Handle download action
-  const handleDownload = () => {
-    if (statsData?.data && statsData.data.length > 0) {
+  const handleDownload = async () => {
+    if (statsData?.data && statsData.data.length > 0 && user) {
+      // Log the download action
+      await logReportAction(
+        user._id,
+        user.username || "",
+        {
+          action: "download",
+          reportType: "Sales Report",
+          description: `Downloaded Sales Report with ${statsData.data.length} records`,
+        },
+        combinedRole?.roles || [],
+      );
+
       exportSalesManagerToExcel(
         statsData.data,
         allProjects,
