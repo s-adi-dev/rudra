@@ -31,7 +31,10 @@ interface RegisteredClientsReportProps {
   combinedRole: CombinedRoleType | null;
 }
 
-export function RegisteredClientsReport({ user, combinedRole }: RegisteredClientsReportProps) {
+export function RegisteredClientsReport({
+  user,
+  combinedRole,
+}: RegisteredClientsReportProps) {
   const [selectedProject, setSelectedProject] = useState<string>("");
 
   // Fetch projects list

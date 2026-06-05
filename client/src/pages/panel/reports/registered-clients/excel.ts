@@ -19,6 +19,7 @@ const formatRegisteredClientData = (client: RegisteredClientData) => {
         })
       : "-",
     "Client Name": client.name,
+    Config: client.config.toUpperCase(),
     Unit: client.unit,
     Wing: client.wing || "-",
     "Agreement Value": `₹${client.agreementValue.toLocaleString("en-IN")}`,
@@ -64,9 +65,24 @@ export function exportRegisteredClientsToExcel(
   // Add rows
   worksheet.addRows(formattedData);
 
+  // Define column alignment: columns 1-3 (Date, Registration Date, Client Name) = left,
+  // columns 4-6 (Config, Unit, Wing) = center, columns 7-10 = right
+  const columnAlignments: { [key: number]: "left" | "center" | "right" } = {
+    1: "left", // Date
+    2: "left", // Registration Date
+    3: "left", // Client Name
+    4: "center", // Config
+    5: "center", // Unit
+    6: "center", // Wing
+    7: "right", // Agreement Value
+    8: "right", // Received Amount
+    9: "right", // Pending Amount
+    10: "right", // Payment %
+  };
+
   // Style the header row
   const headerRow = worksheet.getRow(1);
-  headerRow.eachCell((cell) => {
+  headerRow.eachCell((cell, colNumber) => {
     cell.font = {
       bold: true,
       color: { argb: "FFFFFFFF" }, // White text
@@ -76,7 +92,23 @@ export function exportRegisteredClientsToExcel(
       pattern: "solid",
       fgColor: { argb: "FF4472C4" }, // Blue background
     };
-    cell.alignment = { horizontal: "center", vertical: "middle" };
+    cell.alignment = {
+      horizontal: columnAlignments[colNumber] || "center",
+      vertical: "middle",
+    };
+  });
+
+  // Apply alignment to data rows
+  worksheet.eachRow((row, rowNumber) => {
+    if (rowNumber > 1) {
+      // Skip header row
+      row.eachCell((cell, colNumber) => {
+        cell.alignment = {
+          horizontal: columnAlignments[colNumber] || "left",
+          vertical: "middle",
+        };
+      });
+    }
   });
 
   // Add total row
@@ -84,6 +116,7 @@ export function exportRegisteredClientsToExcel(
     Date: "",
     "Registration Date": "",
     "Client Name": "",
+    Config: "",
     Unit: "",
     Wing: "",
     "Agreement Value": `₹${data.reduce((sum, c) => sum + c.agreementValue, 0).toLocaleString("en-IN")}`,
@@ -100,10 +133,10 @@ export function exportRegisteredClientsToExcel(
       pattern: "solid",
       fgColor: { argb: "FFE7E6E6" }, // Light gray background
     };
-    if (colNumber >= 5) {
-      // Align currency columns to right
-      cell.alignment = { horizontal: "right", vertical: "middle" };
-    }
+    cell.alignment = {
+      horizontal: columnAlignments[colNumber] || "left",
+      vertical: "middle",
+    };
   });
 
   // First cell in total row should say "TOTAL"

@@ -7,6 +7,7 @@ export interface RegisteredClientData {
   date: string;
   registrationDate?: string | null;
   name: string;
+  config: string;
   unit: string;
   wing?: string;
   agreementValue: number;

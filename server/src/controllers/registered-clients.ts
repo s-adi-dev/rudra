@@ -9,6 +9,7 @@ interface RegisteredClientData {
   date: Date;
   registrationDate?: Date | null;
   name: string;
+  config: string;
   unit: string;
   wing?: string;
   agreementValue: number;
@@ -63,7 +64,7 @@ export class RegisteredClientsController {
       })
         .populate({
           path: "unit",
-          select: "unitNumber",
+          select: "unitNumber configuration",
           model: "Unit",
         })
         .sort({ date: -1 });
@@ -88,7 +89,7 @@ export class RegisteredClientsController {
         {
           $match: {
             clientId: { $in: clientIds },
-            isDeleted: false,
+            isDeleted: { $ne: true },
           },
         },
         {
@@ -141,14 +142,16 @@ export class RegisteredClientsController {
           const clientIdStr = client._id.toString();
           const receivedAmount = paymentMap.get(clientIdStr) || 0;
 
-          // Get unit number safely
+          // Get unit number and configuration safely
           let unitNumber = "N/A";
-          if (
-            client.unit &&
-            typeof client.unit === "object" &&
-            "unitNumber" in client.unit
-          ) {
-            unitNumber = (client.unit as any).unitNumber;
+          let unitConfig = "N/A";
+          if (client.unit && typeof client.unit === "object") {
+            if ("unitNumber" in client.unit) {
+              unitNumber = (client.unit as any).unitNumber;
+            }
+            if ("configuration" in client.unit) {
+              unitConfig = (client.unit as any).configuration;
+            }
           }
 
           return {
@@ -156,6 +159,7 @@ export class RegisteredClientsController {
             date: client.date,
             registrationDate: client.registrationDate || null,
             name: client.applicant,
+            config: unitConfig,
             unit: unitNumber,
             wing: client.wing,
             agreementValue: client.agreementValue,
@@ -262,7 +266,7 @@ export class RegisteredClientsController {
             {
               $match: {
                 clientId: { $in: clientIds },
-                isDeleted: false,
+                isDeleted: { $ne: true },
               },
             },
             {
