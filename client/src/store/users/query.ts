@@ -2,6 +2,10 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { userApi } from "./api";
 import { UserQueryParams } from "./types";
 
+type UseUsersSummaryOptions = {
+  includeDeleted?: boolean;
+};
+
 export const useUsers = (params: UserQueryParams = {}) => {
   return useQuery({
     queryKey: ["users", params],
@@ -10,10 +14,12 @@ export const useUsers = (params: UserQueryParams = {}) => {
   });
 };
 
-export const useUsersSummary = () => {
+export const useUsersSummary = ({
+  includeDeleted = true,
+}: UseUsersSummaryOptions = {}) => {
   return useQuery({
-    queryKey: ["users-summary"],
-    queryFn: () => userApi.getUsersSummary(),
+    queryKey: ["users-summary", includeDeleted],
+    queryFn: () => userApi.getUsersSummary(includeDeleted),
     placeholderData: (previousData) => previousData,
   });
 };

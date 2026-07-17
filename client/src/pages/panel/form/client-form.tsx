@@ -86,7 +86,7 @@ const ClientForm = () => {
   const firstNameRef = useRef<HTMLInputElement>(null);
   const submitRef = useRef<HTMLButtonElement>(null);
 
-  const { data: users } = useUsersSummary();
+  const { data: users } = useUsersSummary({ includeDeleted: false });
   const { data: refData } = useReference();
 
   const projectOptions = [{ label: "N/A", value: "N/A" }].concat(
