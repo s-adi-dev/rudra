@@ -11,6 +11,7 @@ type UnitPayload = {
   configuration: string;
   unitSpan: number;
   status: string;
+  partnerId?: string;
   reservedByOrReason?: string;
   referenceId?: string;
 };
@@ -37,6 +38,7 @@ type ProjectPayload = {
   location: string;
   email?: string;
   description?: string;
+  partners?: string[];
   startDate: Date | string;
   completionDate?: Date | string;
   status: "planning" | "under-construction" | "completed";
@@ -65,6 +67,7 @@ class ProjectController {
         legalName: projectData.legalName,
         by: projectData.by,
         location: projectData.location,
+        partners: projectData.partners || [],
         startDate: new Date(projectData.startDate),
         status: projectData.status,
         commercialUnitPlacement: projectData.commercialUnitPlacement,
@@ -129,6 +132,7 @@ class ProjectController {
               configuration: unitData.configuration,
               unitSpan: unitData.unitSpan,
               status: unitData.status,
+              partnerId: unitData.partnerId,
               reservedByOrReason: unitData.reservedByOrReason,
               referenceId: unitData.referenceId,
             });
@@ -171,6 +175,7 @@ class ProjectController {
                 configuration: unitData.configuration,
                 unitSpan: unitData.unitSpan,
                 status: unitData.status,
+                partnerId: unitData.partnerId,
                 reservedByOrReason: unitData.reservedByOrReason,
                 referenceId: unitData.referenceId,
               });
@@ -216,6 +221,7 @@ class ProjectController {
               configuration: unitData.configuration,
               unitSpan: unitData.unitSpan,
               status: unitData.status,
+              partnerId: unitData.partnerId,
               reservedByOrReason: unitData.reservedByOrReason,
               referenceId: unitData.referenceId,
             });
@@ -390,7 +396,7 @@ class ProjectController {
       // fetch all projects
       const projects = await Project.find(
         {},
-        "_id name by location email commercialUnitPlacement",
+        "_id name by location email commercialUnitPlacement partners",
       )
         .populate({
           path: "wings",
@@ -402,7 +408,7 @@ class ProjectController {
               populate: {
                 path: "units",
                 select:
-                  "_id unitNumber area configuration unitSpan status reservedByOrReason referenceId",
+                  "_id unitNumber area configuration unitSpan status partnerId reservedByOrReason referenceId",
               },
             },
             {
@@ -411,7 +417,7 @@ class ProjectController {
               populate: {
                 path: "units",
                 select:
-                  "_id unitNumber area configuration unitSpan status reservedByOrReason referenceId",
+                  "_id unitNumber area configuration unitSpan status partnerId reservedByOrReason referenceId",
               },
             },
           ],
@@ -422,7 +428,7 @@ class ProjectController {
           populate: {
             path: "units",
             select:
-              "_id unitNumber area configuration unitSpan status reservedByOrReason referenceId",
+              "_id unitNumber area configuration unitSpan status partnerId reservedByOrReason referenceId",
           },
         });
 
@@ -610,6 +616,8 @@ class ProjectController {
       if (projectData.email) project.email = projectData.email;
       if (projectData.description)
         project.description = projectData.description;
+      if (projectData.partners !== undefined)
+        project.partners = projectData.partners;
       if (projectData.startDate)
         project.startDate = new Date(projectData.startDate);
       if (projectData.completionDate)

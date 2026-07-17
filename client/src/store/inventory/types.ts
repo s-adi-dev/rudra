@@ -9,6 +9,7 @@ export interface ProjectType {
   location: string;
   email?: string;
   description: string;
+  partners?: string[];
   startDate: string;
   completionDate?: string;
   status: projectStatus;
@@ -49,6 +50,7 @@ export interface FloorType {
 export interface UnitType {
   _id?: string;
   floorId?: string; // Reference to parent floor
+  partnerId?: string;
   unitNumber: string; // The actual unit number displayed (e.g., "101", "A2")
   area: number; // Square footage
   configuration: string; // 1BHK, 2BHK, 3BHK, Shop, Office, etc.

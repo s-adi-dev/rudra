@@ -29,6 +29,7 @@ const commercialUnitPlacementSchema = z.enum(["projectLevel", "wingLevel"]);
 const unitSchema = z.object({
   _id: z.string().optional(),
   floorId: z.string().optional(),
+  partnerId: z.string().optional(),
   unitNumber: z.string().min(1, "Unit number is required."),
   area: z.number().min(1, "Area is required"),
   configuration: z.string().min(1, "Configuration is required."),
@@ -90,6 +91,7 @@ const projectSchema = z
     legalName: z.string().optional(),
     by: z.string().min(1, "Project by is required"),
     location: z.string().min(1, "Project location is required"),
+    partners: z.array(z.string().min(1)).optional(),
     email: z
       .string()
       .trim()

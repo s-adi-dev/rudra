@@ -11,6 +11,19 @@ export type InventoryCategoryType = {
   updatedAt: string;
 };
 
+type FlatInventoryUnit = {
+  wing: string;
+  status: string;
+  config: string;
+  partnerId?: string;
+};
+
+type SummarySheetContext = {
+  title: string;
+  subtitle: string;
+  units: FlatInventoryUnit[];
+};
+
 // Convert 1-based column index -> Excel column letter (A, B, ... AA)
 function colLetter(colIndex: number): string {
   let letter = "";
@@ -24,6 +37,35 @@ function colLetter(colIndex: number): string {
 
 const norm = (s: string | undefined | null): string =>
   (s ?? "").trim().toLowerCase();
+
+function sanitizeWorksheetName(name: string): string {
+  const cleaned = name
+    .replace(/[\\/*?:\[\]]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!cleaned) return "Sheet";
+  return cleaned.slice(0, 31);
+}
+
+function uniqueWorksheetName(
+  workbook: ExcelJS.Workbook,
+  baseName: string,
+): string {
+  const base = sanitizeWorksheetName(baseName);
+  if (!workbook.worksheets.some((sheet) => sheet.name === base)) {
+    return base;
+  }
+
+  for (let suffix = 2; suffix < 100; suffix++) {
+    const maxBaseLength = 31 - String(suffix).length - 1;
+    const candidate = `${base.slice(0, maxBaseLength)}-${suffix}`;
+    if (!workbook.worksheets.some((sheet) => sheet.name === candidate)) {
+      return candidate;
+    }
+  }
+
+  return `${base.slice(0, 28)}-99`;
+}
 
 const ALIGN_CENTER: Partial<ExcelJS.Alignment> = {
   vertical: "middle",
@@ -109,6 +151,301 @@ function setCell(
   if (style) cell.style = { ...cell.style, ...style } as ExcelJS.Style;
 }
 
+function collectResidentialUnits(project: ProjectType): FlatInventoryUnit[] {
+  const flat: FlatInventoryUnit[] = [];
+
+  for (const wing of project.wings ?? []) {
+    for (const floor of wing.floors ?? []) {
+      if (floor.type !== "residential") continue;
+      for (const unit of floor.units ?? []) {
+        const status = unit?.status ? norm(unit.status) : "";
+        if (!status || status === "others") continue;
+
+        flat.push({
+          wing: wing.name,
+          status: unit.status!,
+          config: (unit.configuration ?? "Unspecified").trim() || "Unspecified",
+          partnerId: unit.partnerId,
+        });
+      }
+    }
+  }
+
+  return flat;
+}
+
+function collectPartnerNames(
+  project: ProjectType,
+  units: FlatInventoryUnit[],
+): string[] {
+  const partnerNames: string[] = [];
+  const seen = new Set<string>();
+
+  for (const partner of project.partners ?? []) {
+    const key = norm(partner);
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    partnerNames.push(partner);
+  }
+
+  for (const unit of units) {
+    if (!unit.partnerId) continue;
+    const key = norm(unit.partnerId);
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    partnerNames.push(unit.partnerId);
+  }
+
+  return partnerNames;
+}
+
+function filterUnitsForPartner(
+  units: FlatInventoryUnit[],
+  partnerName?: string,
+): FlatInventoryUnit[] {
+  if (!partnerName) return units;
+  const target = norm(partnerName);
+  return units.filter((unit) => norm(unit.partnerId) === target);
+}
+
+function writeSummarySheet(
+  workbook: ExcelJS.Workbook,
+  categories: InventoryCategoryType[] | undefined,
+  wingNames: string[],
+  context: SummarySheetContext,
+): void {
+  const ws = workbook.addWorksheet(
+    uniqueWorksheetName(workbook, context.title),
+  );
+
+  const orderMap = new Map<string, number>();
+  categories?.forEach((category, idx) => {
+    const displayName = norm(category.displayName);
+    const name = norm(category.name);
+    if (displayName) orderMap.set(displayName, idx);
+    if (name) orderMap.set(name, idx);
+  });
+
+  const flat = context.units;
+
+  const statuses = Array.from(new Set(flat.map((row) => row.status))).sort(
+    (a, b) => {
+      const ia = orderMap.has(norm(a))
+        ? (orderMap.get(norm(a)) as number)
+        : Number.POSITIVE_INFINITY;
+      const ib = orderMap.has(norm(b))
+        ? (orderMap.get(norm(b)) as number)
+        : Number.POSITIVE_INFINITY;
+      return ia !== ib ? ia - ib : a.localeCompare(b);
+    },
+  );
+
+  const countsByStatusWing: Record<string, Record<string, number>> = {};
+  const configCounts: Record<
+    string,
+    Record<string, Record<string, number>>
+  > = {};
+
+  for (const status of statuses) {
+    countsByStatusWing[status] = Object.fromEntries(
+      wingNames.map((w) => [w, 0]),
+    );
+    configCounts[status] = {};
+  }
+
+  for (const row of flat) {
+    if (!countsByStatusWing[row.status]) {
+      countsByStatusWing[row.status] = Object.fromEntries(
+        wingNames.map((w) => [w, 0]),
+      );
+    }
+    countsByStatusWing[row.status][row.wing] += 1;
+
+    if (!configCounts[row.status][row.config]) {
+      configCounts[row.status][row.config] = Object.fromEntries(
+        wingNames.map((w) => [w, 0]),
+      );
+    }
+    configCounts[row.status][row.config][row.wing] += 1;
+  }
+
+  const totalCols = 1 + wingNames.length + 1;
+  const lastColIndex = totalCols;
+
+  ws.mergeCells(1, 1, 1, lastColIndex);
+  setCell(ws, 1, 1, context.title, {
+    font: { bold: true, size: 16 },
+    alignment: ALIGN_CENTER,
+  });
+
+  ws.mergeCells(2, 1, 2, lastColIndex);
+  setCell(ws, 2, 1, context.subtitle, {
+    font: { bold: true },
+    alignment: ALIGN_CENTER,
+  });
+
+  const headerRowIndex = 4;
+  const header = ["Category / Config", ...wingNames, "Total Units"];
+  ws.getRow(headerRowIndex).values = header;
+  styleRect(ws, headerRowIndex, headerRowIndex, 1, lastColIndex, {
+    font: { bold: true },
+    fill: FILL_HEADER,
+    alignment: ALIGN_CENTER,
+  });
+
+  let currentRow = headerRowIndex + 1;
+  const statusRowIndices: number[] = [];
+  const statusRowTotals: number[] = [];
+
+  for (const status of statuses) {
+    setCell(ws, currentRow, 1, status.toUpperCase(), {
+      font: { bold: true },
+      fill: FILL_STATUS,
+      alignment: ALIGN_CENTER,
+    });
+
+    let rowTotal = 0;
+    wingNames.forEach((wingName, index) => {
+      const value = countsByStatusWing[status][wingName] ?? 0;
+      rowTotal += value;
+      setCell(ws, currentRow, 2 + index, value, {
+        font: { bold: true },
+        fill: FILL_STATUS,
+        alignment: ALIGN_CENTER,
+      });
+    });
+
+    const firstWingColLetter = colLetter(2);
+    const lastWingColLetter = colLetter(1 + wingNames.length);
+    const sumRange = `${firstWingColLetter}${currentRow}:${lastWingColLetter}${currentRow}`;
+    setCell(
+      ws,
+      currentRow,
+      lastColIndex,
+      { formula: `SUM(${sumRange})`, result: rowTotal },
+      {
+        font: { bold: true },
+        fill: FILL_STATUS,
+        alignment: ALIGN_CENTER,
+      },
+    );
+
+    statusRowIndices.push(currentRow);
+    statusRowTotals.push(rowTotal);
+    currentRow++;
+
+    const configs = Object.keys(configCounts[status] || {}).sort(configSort);
+    for (const cfg of configs) {
+      setCell(ws, currentRow, 1, cfg, { alignment: ALIGN_CENTER });
+
+      let cfgRowTotal = 0;
+      wingNames.forEach((wingName, index) => {
+        const value = configCounts[status][cfg][wingName] ?? 0;
+        cfgRowTotal += value;
+        setCell(ws, currentRow, 2 + index, value, { alignment: ALIGN_CENTER });
+      });
+
+      setCell(ws, currentRow, lastColIndex, cfgRowTotal, {
+        alignment: ALIGN_CENTER,
+      });
+
+      currentRow++;
+    }
+
+    setCell(ws, currentRow, 1, "");
+    currentRow++;
+  }
+
+  const totalRowIndex = currentRow;
+  setCell(ws, totalRowIndex, 1, "Total", {
+    font: { bold: true },
+    alignment: ALIGN_CENTER,
+  });
+
+  for (let i = 0; i < wingNames.length; i++) {
+    const colIndex = 2 + i;
+    const wingTotal = statuses.reduce(
+      (sum, status) => sum + (countsByStatusWing[status][wingNames[i]] ?? 0),
+      0,
+    );
+
+    if (statusRowIndices.length > 0) {
+      const refs = statusRowIndices.map(
+        (row) => `${colLetter(colIndex)}${row}`,
+      );
+      setCell(
+        ws,
+        totalRowIndex,
+        colIndex,
+        { formula: `SUM(${refs.join(",")})`, result: wingTotal },
+        {
+          font: { bold: true },
+          alignment: ALIGN_CENTER,
+        },
+      );
+    } else {
+      setCell(ws, totalRowIndex, colIndex, wingTotal, {
+        font: { bold: true },
+        alignment: ALIGN_CENTER,
+      });
+    }
+  }
+
+  const grandTotal = statusRowTotals.reduce((sum, value) => sum + value, 0);
+  if (statusRowIndices.length > 0) {
+    const refs = statusRowIndices.map(
+      (row) => `${colLetter(lastColIndex)}${row}`,
+    );
+    setCell(
+      ws,
+      totalRowIndex,
+      lastColIndex,
+      { formula: `SUM(${refs.join(",")})`, result: grandTotal },
+      {
+        font: { bold: true },
+        alignment: ALIGN_CENTER,
+      },
+    );
+  } else {
+    setCell(ws, totalRowIndex, lastColIndex, grandTotal, {
+      font: { bold: true },
+      alignment: ALIGN_CENTER,
+    });
+  }
+
+  const usedStartRow = headerRowIndex;
+  const usedEndRow = totalRowIndex;
+  const usedStartCol = 1;
+  const usedEndCol = lastColIndex;
+
+  styleRect(ws, usedStartRow, usedEndRow, usedStartCol, usedEndCol, {
+    alignment: ALIGN_CENTER,
+  });
+
+  borderRect(
+    ws,
+    usedStartRow,
+    usedEndRow,
+    usedStartCol,
+    usedEndCol,
+    BORDER_THIN,
+  );
+
+  ws.views = [{ state: "frozen", xSplit: 1, ySplit: headerRowIndex }];
+
+  for (let c = 1; c <= lastColIndex; c++) {
+    let max = 10;
+    ws.eachRow({ includeEmpty: false }, (row) => {
+      const value: CellValue | undefined = row.getCell(c).value as
+        | CellValue
+        | undefined;
+      const text = cellValueToString(value);
+      max = Math.max(max, text.length + 2);
+    });
+    ws.getColumn(c).width = Math.min(Math.max(max, 10), 40);
+  }
+}
+
 // Sort configurations like 1BHK, 2BHK numerically first, then alpha
 function configSort(a: string, b: string) {
   const parseBHK = (s: string) => {
@@ -138,260 +475,28 @@ export async function buildResidentialStatusSummaryWorkbook(
   // Force a full calc in apps that support it (harmless elsewhere)
   workbook.calcProperties.fullCalcOnLoad = true;
 
-  const ws = workbook.addWorksheet("Residential Status Summary");
-  const wingNames = (project.wings ?? []).map((w) => w.name);
-
-  // Order map from categories
-  const orderMap = new Map<string, number>();
-  categories?.forEach((c, idx) => {
-    const dn = norm(c.displayName);
-    const n = norm(c.name);
-    if (dn) orderMap.set(dn, idx);
-    if (n) orderMap.set(n, idx);
+  const allUnits = collectResidentialUnits(project);
+  const wingNames = (project.wings ?? []).map((wing) => wing.name);
+  const generatedOn = new Date().toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
   });
 
-  // Collect residential units (ignore status: "others")
-  const IGNORE_STATUS = new Set(["others"]);
-  type Flat = { wing: string; status: string; config: string };
-  const flat: Flat[] = [];
-
-  for (const wing of project.wings ?? []) {
-    for (const floor of wing.floors ?? []) {
-      if (floor.type !== "residential") continue;
-      for (const u of floor.units ?? []) {
-        const s = u?.status ? norm(u.status) : "";
-        if (!s || IGNORE_STATUS.has(s)) continue;
-        flat.push({
-          wing: wing.name,
-          status: u.status!, // keep original case
-          config: (u.configuration ?? "Unspecified").trim() || "Unspecified",
-        });
-      }
-    }
-  }
-
-  // Unique statuses ordered by categories then alpha
-  const statuses = Array.from(new Set(flat.map((r) => r.status))).sort(
-    (a, b) => {
-      const ia = orderMap.has(norm(a))
-        ? (orderMap.get(norm(a)) as number)
-        : Number.POSITIVE_INFINITY;
-      const ib = orderMap.has(norm(b))
-        ? (orderMap.get(norm(b)) as number)
-        : Number.POSITIVE_INFINITY;
-      return ia !== ib ? ia - ib : a.localeCompare(b);
-    },
-  );
-
-  // Pre-compute counts
-  const countsByStatusWing: Record<string, Record<string, number>> = {};
-  const configCounts: Record<
-    string,
-    Record<string, Record<string, number>>
-  > = {};
-
-  for (const st of statuses) {
-    countsByStatusWing[st] = Object.fromEntries(wingNames.map((w) => [w, 0]));
-    configCounts[st] = {};
-  }
-
-  for (const r of flat) {
-    countsByStatusWing[r.status][r.wing] += 1;
-    if (!configCounts[r.status][r.config]) {
-      configCounts[r.status][r.config] = Object.fromEntries(
-        wingNames.map((w) => [w, 0]),
-      );
-    }
-    configCounts[r.status][r.config][r.wing] += 1;
-  }
-
-  // Columns: A = Category/Config, B..= wings, Last = Total
-  const totalCols = 1 + wingNames.length + 1;
-  const lastColIndex = totalCols;
-
-  // Top Title Bar
-  ws.mergeCells(1, 1, 1, lastColIndex);
-  setCell(ws, 1, 1, project.name || "Project Summary", {
-    font: { bold: true, size: 16 },
-    alignment: ALIGN_CENTER,
+  writeSummarySheet(workbook, categories, wingNames, {
+    title: project.name || "Project Summary",
+    subtitle: `Generated on ${generatedOn}`,
+    units: allUnits,
   });
 
-  ws.mergeCells(2, 1, 2, lastColIndex);
-  setCell(
-    ws,
-    2,
-    1,
-    `Generated on ${new Date().toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    })}`,
-    { font: { bold: true }, alignment: ALIGN_CENTER },
-  );
-
-  // Header
-  const headerRowIndex = 4;
-  const header = ["Category / Config", ...wingNames, "Total Units"];
-  ws.getRow(headerRowIndex).values = header;
-  styleRect(ws, headerRowIndex, headerRowIndex, 1, lastColIndex, {
-    font: { bold: true },
-    fill: FILL_HEADER,
-    alignment: ALIGN_CENTER,
-  });
-
-  // Data Rows
-  let currentRow = headerRowIndex + 1; // starts at 5
-  const statusRowIndices: number[] = []; // for bottom totals
-  const statusRowTotals: number[] = []; // cache totals per status row
-
-  for (const status of statuses) {
-    // STATUS ROW
-    setCell(ws, currentRow, 1, status.toUpperCase(), {
-      font: { bold: true },
-      fill: FILL_STATUS,
-      alignment: ALIGN_CENTER,
+  const partnerNames = collectPartnerNames(project, allUnits);
+  for (const partnerName of partnerNames) {
+    const partnerUnits = filterUnitsForPartner(allUnits, partnerName);
+    writeSummarySheet(workbook, categories, wingNames, {
+      title: `${project.name || "Project Summary"} - ${partnerName}`,
+      subtitle: `Partner allocation: ${partnerUnits.length} of ${allUnits.length} units | Generated on ${generatedOn}`,
+      units: partnerUnits,
     });
-
-    // Wing counts
-    let rowTotal = 0;
-    wingNames.forEach((wingName, i) => {
-      const v = countsByStatusWing[status][wingName] ?? 0;
-      rowTotal += v;
-      setCell(ws, currentRow, 2 + i, v, {
-        font: { bold: true },
-        fill: FILL_STATUS,
-        alignment: ALIGN_CENTER,
-      });
-    });
-
-    // Row total: formula + cached result (shows on mobile)
-    const firstWingColLetter = colLetter(2);
-    const lastWingColLetter = colLetter(1 + wingNames.length);
-    const sumRange = `${firstWingColLetter}${currentRow}:${lastWingColLetter}${currentRow}`;
-    setCell(
-      ws,
-      currentRow,
-      lastColIndex,
-      { formula: `SUM(${sumRange})`, result: rowTotal },
-      {
-        font: { bold: true },
-        fill: FILL_STATUS,
-        alignment: ALIGN_CENTER,
-      },
-    );
-
-    statusRowIndices.push(currentRow);
-    statusRowTotals.push(rowTotal);
-    currentRow++;
-
-    // CONFIG ROWS (centered)
-    const configs = Object.keys(configCounts[status] || {}).sort(configSort);
-    for (const cfg of configs) {
-      setCell(ws, currentRow, 1, cfg, { alignment: ALIGN_CENTER });
-
-      let cfgRowTotal = 0;
-      wingNames.forEach((wingName, i) => {
-        const v = configCounts[status][cfg][wingName] ?? 0;
-        cfgRowTotal += v;
-        setCell(ws, currentRow, 2 + i, v, { alignment: ALIGN_CENTER });
-      });
-
-      setCell(ws, currentRow, lastColIndex, cfgRowTotal, {
-        alignment: ALIGN_CENTER,
-      });
-
-      currentRow++;
-    }
-
-    // Spacer row
-    setCell(ws, currentRow, 1, "");
-    currentRow++;
-  }
-
-  // FINAL TOTAL ROW — sums ONLY the status rows
-  const totalRowIndex = currentRow;
-  setCell(ws, totalRowIndex, 1, "Total", {
-    font: { bold: true },
-    alignment: ALIGN_CENTER,
-  });
-
-  // Per-wing totals (formula + cached result)
-  for (let i = 0; i < wingNames.length; i++) {
-    const colIndex = 2 + i; // B..?
-    const refs = statusRowIndices
-      .map((r) => `${colLetter(colIndex)}${r}`)
-      .join(",");
-    // Compute cached total for this wing
-    let colTotal = 0;
-    for (const status of statuses) {
-      colTotal += countsByStatusWing[status][wingNames[i]] ?? 0;
-    }
-    setCell(
-      ws,
-      totalRowIndex,
-      colIndex,
-      { formula: `SUM(${refs})`, result: colTotal },
-      {
-        font: { bold: true },
-        alignment: ALIGN_CENTER,
-      },
-    );
-  }
-
-  // Grand Total (last col) — formula + cached result
-  {
-    const colIndex = lastColIndex;
-    const refs = statusRowIndices
-      .map((r) => `${colLetter(colIndex)}${r}`)
-      .join(",");
-
-    const grandTotal = statusRowTotals.reduce((a, b) => a + b, 0);
-
-    setCell(
-      ws,
-      totalRowIndex,
-      colIndex,
-      { formula: `SUM(${refs})`, result: grandTotal },
-      {
-        font: { bold: true },
-        alignment: ALIGN_CENTER,
-      },
-    );
-  }
-
-  // Global borders + global center
-  const usedStartRow = headerRowIndex; // include header
-  const usedEndRow = totalRowIndex; // through totals
-  const usedStartCol = 1;
-  const usedEndCol = lastColIndex;
-
-  styleRect(ws, usedStartRow, usedEndRow, usedStartCol, usedEndCol, {
-    alignment: ALIGN_CENTER,
-  });
-
-  borderRect(
-    ws,
-    usedStartRow,
-    usedEndRow,
-    usedStartCol,
-    usedEndCol,
-    BORDER_THIN,
-  );
-
-  // Freeze panes (keep header visible)
-  ws.views = [{ state: "frozen", xSplit: 1, ySplit: headerRowIndex }];
-
-  // Autosize columns (bounded)
-  for (let c = 1; c <= lastColIndex; c++) {
-    let max = 10;
-    ws.eachRow({ includeEmpty: false }, (row) => {
-      const v: CellValue | undefined = row.getCell(c).value as
-        | CellValue
-        | undefined;
-      const text = cellValueToString(v);
-      max = Math.max(max, text.length + 2);
-    });
-    ws.getColumn(c).width = Math.min(Math.max(max, 10), 40);
   }
 
   return workbook.xlsx.writeBuffer();

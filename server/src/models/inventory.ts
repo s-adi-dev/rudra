@@ -4,6 +4,7 @@ import mongoose, { Document, Schema, Types } from "mongoose";
 export interface UnitType extends Document {
   _id: Types.ObjectId;
   floorId: Types.ObjectId;
+  partnerId?: string;
   unitNumber: string;
   area: number;
   configuration: string;
@@ -39,6 +40,7 @@ export interface ProjectType extends Document {
   legalName?: string;
   by: string;
   location: string;
+  partners?: string[];
   email?: string;
   description?: string;
   startDate: Date;
@@ -58,6 +60,10 @@ const UnitSchema = new Schema<UnitType>(
       type: Schema.Types.ObjectId,
       required: true,
       ref: "Floor",
+    },
+    partnerId: {
+      type: String,
+      index: true,
     },
     unitNumber: {
       type: String,
@@ -176,6 +182,9 @@ const ProjectSchema = new Schema<ProjectType>(
     by: {
       type: String,
       required: true,
+    },
+    partners: {
+      type: [String],
     },
     location: {
       type: String,
