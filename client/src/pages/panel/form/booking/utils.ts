@@ -1,5 +1,6 @@
 import { aadhaarSchema, panSchema } from "@/utils/zod-schema/utils";
 import { z } from "zod";
+import { calculationsType } from "./booking-pdf";
 
 // Define a discriminated union for the unit based on type
 const FlatUnitSchema = z.object({
@@ -96,7 +97,6 @@ const BookingSchema = z.discriminatedUnion("type", [
       checkNo: z.string().min(1, "Check number required"),
       bankName: z.string().min(1, "Bank name required"),
       paymentDate: z.date({ required_error: "Payment date required" }),
-      av: z.string(),
     }),
   }),
 ]);
@@ -197,3 +197,18 @@ export const FlatChargesNoteList = [
 ];
 
 export const ShopChargesNoteList = ["Extra Taxes", "Including Taxes", "Other"];
+
+export function calculateDealBreakdown(dealAmount: number): calculationsType {
+  const registrationCharges = Math.round(Math.min(30000, dealAmount * 0.01));
+  const netAmount = Math.round(dealAmount - registrationCharges);
+  const agreementValue = Math.round(netAmount / 1.08);
+  const stampDuty = Math.round(agreementValue * 0.07);
+  const gst = Math.round(agreementValue * 0.01);
+
+  return {
+    agreementValue,
+    registrationCharges,
+    stampDuty,
+    gst,
+  };
+}

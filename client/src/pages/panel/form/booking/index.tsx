@@ -55,6 +55,7 @@ import { BookingForm as PdfFlatBookingForm } from "./booking-pdf";
 import {
   BookingSchema,
   BookingType,
+  calculateDealBreakdown,
   FlatChargesNoteList,
   ShopChargesNoteList,
 } from "./utils";
@@ -86,6 +87,10 @@ export const BookingForm = () => {
   const { useReference } = useClientPartners();
   const { data: users, refetch: refetchUsers } = useUsersSummary();
   const { data: refData, refetch: refetchRef } = useReference();
+  const [calculationMode, setCalculationMode] = useState<
+    "manual" | "automatic"
+  >("manual");
+
   const isSmallScreen = useMediaQuery("(max-width: 1024px)");
   const dialog = useAlertDialog({
     alertType: "Warn",
@@ -155,6 +160,10 @@ export const BookingForm = () => {
       av: 0,
     },
   });
+  const dealBreakdown =
+    calculationMode === "automatic"
+      ? calculateDealBreakdown(bookingData.payment.amount * amountUnit)
+      : null;
 
   // Helper functions
   const getFilteredProjectsData = () => {
@@ -476,6 +485,8 @@ export const BookingForm = () => {
               return selectedRef?.companyName || "N/A";
             })(),
           }}
+          calculationMode={calculationMode}
+          calculations={dealBreakdown ?? undefined}
         />,
       ).toBlob();
       const blobUrl = URL.createObjectURL(blob);
@@ -525,7 +536,10 @@ export const BookingForm = () => {
       bookingDetails: {
         ...bookingData.bookingDetails,
         bookingAmt: bookingData.bookingDetails.bookingAmt * bookingUnit,
-        av: bookingData.bookingDetails.av * avUnit,
+        av:
+          calculationMode === "automatic"
+            ? dealBreakdown?.agreementValue || 0
+            : bookingData.bookingDetails.av * avUnit,
       },
     };
 
@@ -583,7 +597,10 @@ export const BookingForm = () => {
         paymentType: selectedPaymentType,
         paymentStatus: "Token Received",
         bookingAmt: newBooking.bookingDetails.bookingAmt,
-        agreementValue: newBooking.bookingDetails.av,
+        agreementValue:
+          calculationMode === "automatic"
+            ? dealBreakdown?.agreementValue || 0
+            : newBooking.bookingDetails.av,
         dealTerms: newBooking.payment.includedChargesNote,
         paymentTerms: newBooking.payment.paymentTerms,
         salesManager: selectedSM,
@@ -993,6 +1010,56 @@ export const BookingForm = () => {
               />
             </FormFieldWrapper>
           </div>
+
+          <div className="space-y-4 pt-6 border-t">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h3 className="text-lg font-medium">Calculation Mode</h3>
+                <p className="text-sm text-muted-foreground">
+                  Choose how the agreement value should be handled.
+                </p>
+              </div>
+              <Select
+                value={calculationMode}
+                onValueChange={(value) =>
+                  setCalculationMode(value as "manual" | "automatic")
+                }
+              >
+                <SelectTrigger className="w-full sm:w-48">
+                  <SelectValue placeholder="Select mode" />
+                </SelectTrigger>
+                <SelectContent align="center">
+                  <SelectGroup>
+                    <SelectLabel>Mode</SelectLabel>
+                    <SelectItem value="manual">Manual</SelectItem>
+                    <SelectItem value="automatic">Automatic</SelectItem>
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {calculationMode === "automatic" && dealBreakdown && (
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                {[
+                  ["Agreement Value", dealBreakdown.agreementValue],
+                  ["Registration Charges", dealBreakdown.registrationCharges],
+                  ["Stamp Duty", dealBreakdown.stampDuty],
+                  ["GST", dealBreakdown.gst],
+                ].map(([label, value]) => (
+                  <div
+                    key={label}
+                    className="rounded-lg border bg-muted/30 px-4 py-3"
+                  >
+                    <p className="text-sm text-muted-foreground">{label}</p>
+                    <p className="mt-1 text-lg font-semibold">
+                      ₹{Number(value).toLocaleString("en-IN")}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
           <div className="space-y-6 pt-6 border-t">
             <h3 className="text-lg font-medium">Booking Information</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -1109,18 +1176,26 @@ export const BookingForm = () => {
                 <div className="flex flex-col sm:flex-row gap-4 w-full">
                   <Input
                     className="w-full"
-                    value={bookingData.bookingDetails.av}
+                    value={
+                      calculationMode === "automatic"
+                        ? (dealBreakdown?.agreementValue ?? 0)
+                        : bookingData.bookingDetails.av
+                    }
                     onChange={(e) =>
                       handleInputChange(
                         ["bookingDetails", "av"],
                         Number(e.target.value) ? Number(e.target.value) : 0,
                       )
                     }
+                    disabled={calculationMode === "automatic"}
                     placeholder="0"
                   />
                   <Select
-                    value={avUnit.toString()}
+                    value={
+                      calculationMode === "automatic" ? "1" : avUnit.toString()
+                    }
                     onValueChange={(value) => setAVUnit(Number(value))}
+                    disabled={calculationMode === "automatic"}
                   >
                     <SelectTrigger className="w-40">
                       <SelectValue placeholder="Budget Units" />
@@ -1213,6 +1288,8 @@ export const BookingForm = () => {
                     return selectedRef?.companyName || "N/A";
                   })(),
                 }}
+                calculationMode={calculationMode}
+                calculations={dealBreakdown ?? undefined}
               />
             }
             fileName={`booking-${finalizedBooking.applicants.primary}-${finalizedBooking.unit.unitNo}.pdf`}

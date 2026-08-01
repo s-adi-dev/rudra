@@ -22,9 +22,18 @@ import {
 } from "@/utils/func/numberUtils";
 import { addNumberingToLines, formatAddress } from "@/utils/func/strUtils";
 
+export interface calculationsType {
+  agreementValue: number;
+  registrationCharges: number;
+  stampDuty: number;
+  gst: number;
+}
+
 interface BookingFormProps {
   data: BookingType;
+  calculationMode: "manual" | "automatic";
   metaData: { manager: string; cp: string };
+  calculations?: calculationsType;
 }
 
 // Register fonts with better performance loading
@@ -161,6 +170,30 @@ const styles = StyleSheet.create({
     padding: 5,
   },
 
+  // Automatic mode 2-column table styles
+  tableColHeader2: {
+    width: "50%",
+    borderRightWidth: 1,
+    borderRightColor: "#000",
+    borderRightStyle: "solid",
+    padding: 5,
+    backgroundColor: "#f0f0f0",
+    fontWeight: "bold",
+    textAlign: "center",
+  },
+  tableCol2: {
+    width: "50%",
+    borderRightWidth: 1,
+    borderRightColor: "#000",
+    borderRightStyle: "solid",
+    padding: 5,
+  },
+  tableColLast2: {
+    width: "50%",
+    padding: 5,
+    textAlign: "right",
+  },
+
   // Spacing
   mt16: { marginTop: 16 },
   mt12: { marginTop: 12 },
@@ -274,17 +307,24 @@ const LabeledText = ({ label, value }: { label: string; value: string }) => (
 const BookingFormPage = ({
   data,
   metaData,
+  calculationMode,
+  calculations,
   isCustomerCopy = false,
 }: {
   data: BookingType;
   metaData: { manager: string; cp: string };
+  calculationMode: "manual" | "automatic";
   isCustomerCopy?: boolean;
+  calculations?: calculationsType;
 }) => {
   const [labelPart, valuePart] = data.unit.wing
     ? data.unit.wing.toUpperCase().split(/ (.+)/)
     : "";
   return (
-    <Page size="A4" style={styles.page}>
+    <Page
+      size={calculationMode === "automatic" ? "LEGAL" : "A4"}
+      style={styles.page}
+    >
       <View style={styles.container}>
         {/* Copy Indicator */}
         {isCustomerCopy && (
@@ -414,52 +454,152 @@ const BookingFormPage = ({
         </View>
 
         {/* Cost Table Section */}
-        <View style={[styles.section]}>
-          <View style={styles.table}>
-            {/* Header Row */}
-            <View style={styles.tableRow}>
-              <View style={styles.tableColHeader}>
-                <Text>DESCRIPTION</Text>
+        {calculationMode === "manual" && (
+          <View style={[styles.section]}>
+            <View style={styles.table}>
+              {/* Header Row */}
+              <View style={styles.tableRow}>
+                <View style={styles.tableColHeader}>
+                  <Text>DESCRIPTION</Text>
+                </View>
+                <View style={styles.tableColHeader}>
+                  <Text>RATE</Text>
+                </View>
+                <View style={[styles.tableColHeader, { borderRightWidth: 0 }]}>
+                  <Text>AMOUNT (Rs.)</Text>
+                </View>
               </View>
-              <View style={styles.tableColHeader}>
-                <Text>RATE</Text>
-              </View>
-              <View style={[styles.tableColHeader, { borderRightWidth: 0 }]}>
-                <Text>AMOUNT (Rs.)</Text>
-              </View>
-            </View>
 
-            {/* Data Row */}
-            <View style={styles.tableRow}>
-              <View style={styles.tableCol}>
-                <Text>UNIT COST</Text>
+              {/* Data Row */}
+              <View style={styles.tableRow}>
+                <View style={styles.tableCol}>
+                  <Text>UNIT COST</Text>
+                </View>
+                <View style={styles.tableCol}>
+                  <Text>LUMP SUM</Text>
+                </View>
+                <View style={styles.tableColLast}>
+                  <Text>₹{formatToCurrency(data.payment.amount)}</Text>
+                </View>
               </View>
-              <View style={styles.tableCol}>
-                <Text>LUMP SUM</Text>
-              </View>
-              <View style={styles.tableColLast}>
-                <Text>₹{formatToCurrency(data.payment.amount)}</Text>
-              </View>
-            </View>
 
-            {/* Notes Row */}
-            <View style={styles.tableRow}>
-              <View style={styles.tableColFull}>
-                <Text>{data.payment.includedChargesNote}</Text>
+              {/* Notes Row */}
+              <View style={styles.tableRow}>
+                <View style={styles.tableColFull}>
+                  <Text>{data.payment.includedChargesNote}</Text>
+                </View>
               </View>
-            </View>
 
-            {/* Amount in Words Row */}
-            <View style={styles.tableRowLast}>
-              <View style={styles.tableColFull}>
-                <Text>
-                  <Text style={styles.bold}>Rupees in Words: </Text>
-                  {numberToWords(data.payment.amount)}
-                </Text>
+              {/* Amount in Words Row */}
+              <View style={styles.tableRowLast}>
+                <View style={styles.tableColFull}>
+                  <Text>
+                    <Text style={styles.bold}>Rupees in Words: </Text>
+                    {numberToWords(data.payment.amount)}
+                  </Text>
+                </View>
               </View>
             </View>
           </View>
-        </View>
+        )}
+
+        {calculationMode === "automatic" && calculations && (
+          <View style={[styles.section]}>
+            <View style={styles.table}>
+              {/* Column Header Row */}
+              <View style={styles.tableRow}>
+                <View style={styles.tableColHeader2}>
+                  <Text>DESCRIPTION</Text>
+                </View>
+                <View style={[styles.tableColHeader2, { borderRightWidth: 0 }]}>
+                  <Text>AMOUNT (Rs.)</Text>
+                </View>
+              </View>
+
+              {/* Agreement Value Row */}
+              <View style={styles.tableRow}>
+                <View style={styles.tableCol2}>
+                  <Text>AGREEMENT VALUE</Text>
+                </View>
+                <View style={styles.tableColLast2}>
+                  <Text>₹{formatToCurrency(calculations.agreementValue)}</Text>
+                </View>
+              </View>
+
+              {/* Stamp Duty Row */}
+              <View style={styles.tableRow}>
+                <View style={styles.tableCol2}>
+                  <Text>STAMP DUTY</Text>
+                </View>
+                <View style={styles.tableColLast2}>
+                  <Text>₹{formatToCurrency(calculations.stampDuty)}</Text>
+                </View>
+              </View>
+
+              {/* Registration Fees Row */}
+              <View style={styles.tableRow}>
+                <View style={styles.tableCol2}>
+                  <Text>REGISTRATION FEES</Text>
+                </View>
+                <View style={styles.tableColLast2}>
+                  <Text>
+                    ₹{formatToCurrency(calculations.registrationCharges)}
+                  </Text>
+                </View>
+              </View>
+
+              {/* G.S.T Row */}
+              <View style={styles.tableRow}>
+                <View style={styles.tableCol2}>
+                  <Text>G.S.T</Text>
+                </View>
+                <View style={styles.tableColLast2}>
+                  <Text>₹{formatToCurrency(calculations.gst)}</Text>
+                </View>
+              </View>
+
+              {/* Total Row */}
+              <View style={styles.tableRow}>
+                <View style={[styles.tableCol2, styles.bold]}>
+                  <Text style={styles.bold}>TOTAL VALUE OF THE FLAT</Text>
+                </View>
+                <View style={styles.tableColLast2}>
+                  <Text style={styles.bold}>
+                    ₹
+                    {formatToCurrency(
+                      calculations.agreementValue +
+                        calculations.registrationCharges +
+                        calculations.stampDuty +
+                        calculations.gst,
+                    )}
+                  </Text>
+                </View>
+              </View>
+
+              {/* Amount in Words Row (spans both columns) */}
+              <View style={styles.tableRow}>
+                <View style={styles.tableColFull}>
+                  <Text>
+                    <Text style={styles.bold}>Rupees in Words: </Text>
+                    {numberToWords(
+                      calculations.agreementValue +
+                        calculations.registrationCharges +
+                        calculations.stampDuty +
+                        calculations.gst,
+                    )}
+                  </Text>
+                </View>
+              </View>
+
+              {/* Parking Info Row (spans both columns) */}
+              <View style={styles.tableRowLast}>
+                <View style={styles.tableColFull}>
+                  <Text>{data.payment.includedChargesNote}</Text>
+                </View>
+              </View>
+            </View>
+          </View>
+        )}
 
         {/* Bank Information */}
         {data.type == "residential" && (
@@ -634,6 +774,10 @@ const BookingFormPage = ({
           </View>
         </View>
 
+        {calculationMode === "automatic" && calculations && (
+          <View style={styles.separator} />
+        )}
+
         {/* Final Signatures - Absolutely positioned at bottom */}
         <View style={styles.bottomSignatures}>
           <View style={styles.signatureBlock}>
@@ -651,14 +795,30 @@ const BookingFormPage = ({
   );
 };
 
-export const BookingForm = ({ data, metaData }: BookingFormProps) => {
+export const BookingForm = ({
+  data,
+  metaData,
+  calculationMode,
+  calculations,
+}: BookingFormProps) => {
   return (
     <Document>
       {/* Original */}
-      <BookingFormPage data={data} metaData={metaData} />
+      <BookingFormPage
+        data={data}
+        metaData={metaData}
+        calculationMode={calculationMode}
+        calculations={calculations}
+      />
 
       {/* Customer Copy */}
-      <BookingFormPage data={data} metaData={metaData} isCustomerCopy />
+      <BookingFormPage
+        data={data}
+        metaData={metaData}
+        calculationMode={calculationMode}
+        calculations={calculations}
+        isCustomerCopy
+      />
     </Document>
   );
 };
