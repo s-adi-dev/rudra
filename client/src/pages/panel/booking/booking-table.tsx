@@ -142,6 +142,10 @@ export const BookingTable = ({ data }: BookingTableProps) => {
     setIsStatusOpen(true);
   };
 
+  const handleRegeneratePdf = (booking: ClientBooking) => {
+    navigate(`/panel/booking/regenerate-pdf/${booking._id}`);
+  };
+
   // useEffects
   useEffect(() => {
     // Measure the heights of all expanded content
@@ -255,6 +259,7 @@ export const BookingTable = ({ data }: BookingTableProps) => {
                         handleDelete={handleDelete}
                         handleUpdateModal={handleUpdateModal}
                         handleStatusModal={handleStatusModal}
+                        handleRegeneratePdf={handleRegeneratePdf}
                       />
                     </TableCell>
                   </TableRow>
@@ -372,11 +377,13 @@ const MoreAction = ({
   handleDelete,
   handleUpdateModal,
   handleStatusModal,
+  handleRegeneratePdf,
 }: {
   booking: ClientBooking;
   handleDelete: (booking: ClientBooking) => void;
   handleUpdateModal: (booking: ClientBooking) => void;
   handleStatusModal: (booking: ClientBooking) => void;
+  handleRegeneratePdf: (booking: ClientBooking) => void;
 }) => {
   const navigate = useNavigate();
   const { combinedRole } = useAuth(true);
@@ -392,12 +399,14 @@ const MoreAction = ({
     ledgerPerms:
       hasPermission(combinedRole, "BookingLedger", "view-booking-ledger") &&
       ["registered", "registeration-process"].includes(booking.status),
+    regeneratePdf: hasPermission(combinedRole, "Booking", "regenerate-pdf"),
   };
 
   const hasPerms =
     Permissions.updateBooking ||
     Permissions.deleteBooking ||
-    Permissions.changeStatus;
+    Permissions.changeStatus ||
+    Permissions.regeneratePdf;
 
   return (
     <DropdownMenu>
@@ -416,6 +425,13 @@ const MoreAction = ({
               )}
             >
               Open Ledger
+            </DropdownMenuItem>
+          )}
+          {booking.status == "booked" && Permissions.regeneratePdf && (
+            <DropdownMenuItem
+              onClick={withStopPropagation(() => handleRegeneratePdf(booking))}
+            >
+              Regenerate PDF
             </DropdownMenuItem>
           )}
           {Permissions.changeStatus && (

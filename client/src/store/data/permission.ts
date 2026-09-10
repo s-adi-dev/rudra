@@ -61,6 +61,8 @@ export const AdminPermissions: Permission[] = [
       "update-booking",
       "update-booking-status",
       "delete-booking",
+      "regenerate-pdf",
+      "regenerate-cancellation-pdf",
     ],
   },
   {
@@ -225,6 +227,11 @@ export const availablePermissionPages: AvailablePermissionPage[] = [
       { value: "update-booking", label: "Update Booking" },
       { value: "update-booking-status", label: "Update Booking Status" },
       { value: "delete-booking", label: "Delete Booking" },
+      { value: "regenerate-pdf", label: "Regenerate Booking PDF" },
+      {
+        value: "regenerate-cancellation-pdf",
+        label: "Regenerate Booking Cancellation PDF",
+      },
     ],
   },
   {

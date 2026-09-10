@@ -16,6 +16,9 @@ const ClientDetails = lazy(() => import("@/pages/panel/client-details"));
 const ClientPartnerList = lazy(() => import("@/pages/panel/cp-list"));
 const ClientPartnerDetails = lazy(() => import("@/pages/panel/cp-details"));
 const BookingList = lazy(() => import("@/pages/panel/booking"));
+const RegenerateBookingPdf = lazy(
+  () => import("@/pages/panel/booking/regenerate-pdf"),
+);
 const BookingLedger = lazy(() => import("@/pages/panel/booking-ledger"));
 const Inventory = lazy(() => import("@/pages/panel/inventory"));
 const InventoryDetails = lazy(() => import("@/pages/panel/inventory/details"));
@@ -105,6 +108,11 @@ const MainBody: React.FC<MainProps> = ({
       pageName: "ClientPartner",
     },
     { path: "booking/", element: <BookingList />, pageName: "Booking" },
+    {
+      path: "booking/regenerate-pdf/:id",
+      element: <RegenerateBookingPdf />,
+      pageName: "Booking",
+    },
     { path: "booking/:pageno", element: <BookingList />, pageName: "Booking" },
     {
       path: "booking/:pageno/ledger/:id/",

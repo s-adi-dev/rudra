@@ -59,6 +59,8 @@ export const defaultRootPermissions = [
       "update-booking",
       "update-booking-status",
       "delete-booking",
+      "regenerate-pdf",
+      "regenerate-cancellation-pdf",
     ],
   },
   {
