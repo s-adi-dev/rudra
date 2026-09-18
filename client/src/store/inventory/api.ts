@@ -1,6 +1,6 @@
 // src/api/inventoryApi.ts
 import newRequest from "@/utils/func/request";
-import { ProjectType, UnitType } from "./types";
+import { FloorType, ProjectType, UnitType } from "./types";
 
 // Types for API responses
 export interface GetProjectsResponse {
@@ -62,6 +62,11 @@ export interface UnitResponse {
   data: UnitType;
 }
 
+export interface FloorResponse {
+  success: boolean;
+  data: FloorType;
+}
+
 export interface DeleteUnitResponse {
   success: boolean;
   message: string;
@@ -83,6 +88,11 @@ export interface FloorPayload {
   displayNumber: number;
   showArea: boolean;
   units: UnitPayload[];
+}
+
+export interface CreateFloorPayload extends FloorPayload {
+  projectId: string;
+  wingId?: string;
 }
 
 export interface WingPayload {
@@ -208,6 +218,15 @@ export const inventoryApi = {
   deleteProject: async (projectId: string) => {
     const response = await newRequest.delete<DeleteProjectResponse>(
       `/inventory/project/${projectId}`,
+    );
+    return response.data;
+  },
+
+  // Add a floor to an existing project
+  createFloor: async (floorData: CreateFloorPayload) => {
+    const response = await newRequest.post<FloorResponse>(
+      "/inventory/floor",
+      floorData,
     );
     return response.data;
   },

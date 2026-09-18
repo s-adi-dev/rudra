@@ -2,6 +2,7 @@ import { useAlertDialog } from "@/components/custom ui/alertDialog";
 import { CenterWrapper } from "@/components/custom ui/center-page";
 import ErrorCard from "@/components/custom ui/error-display";
 import { Loader } from "@/components/custom ui/loader";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -13,21 +14,64 @@ import {
 import { useBreadcrumb } from "@/hooks/use-breadcrumb";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/store/auth";
+import { hasPermission } from "@/hooks/use-role";
 import {
   commercialUnitPlacementType,
+  FloorType,
   projectStatus,
   ProjectType,
   useInventory,
 } from "@/store/inventory";
 import { CustomAxiosError } from "@/utils/types/axios";
 import { isEqual } from "lodash";
-import { Box } from "lucide-react";
+import { Box, Plus } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { BankDetailsDisplay } from "./bank-details-display";
 import ProjectDetailsFooter from "./footer";
 import { ProjectInfo } from "./project-info";
 import { WingInfo } from "./wing-info";
+import { AddFloorDialog } from "./add-floor-dialog";
+
+function ProjectCommercialFloors({ floors }: { floors: FloorType[] }) {
+  if (!floors.length) {
+    return (
+      <p className="text-sm text-muted-foreground">
+        No commercial floors added yet.
+      </p>
+    );
+  }
+
+  return (
+    <div className="overflow-x-auto rounded-md border">
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="border-b bg-muted/40 text-left">
+            <th className="px-3 py-2">Floor</th>
+            <th className="px-3 py-2">Type</th>
+            <th className="px-3 py-2">Units</th>
+            <th className="px-3 py-2">Area</th>
+          </tr>
+        </thead>
+        <tbody>
+          {floors.map((floor) => (
+            <tr
+              key={floor._id || floor.displayNumber}
+              className="border-b last:border-0"
+            >
+              <td className="px-3 py-2">{floor.displayNumber}</td>
+              <td className="px-3 py-2 capitalize">{floor.type}</td>
+              <td className="px-3 py-2">{floor.units.length}</td>
+              <td className="px-3 py-2">
+                {floor.showArea ? "Shown" : "Hidden"}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
 
 export default function InventoryDetails() {
   // Hooks
@@ -35,6 +79,12 @@ export default function InventoryDetails() {
   const { useProjectDetails, updateProjectMutation, deleteProjectMutation } =
     useInventory();
   const { logout: handleLogout } = useAuth(true);
+  const { combinedRole } = useAuth(true);
+  const canCreateFloor = hasPermission(
+    combinedRole,
+    "Inventory",
+    "create-floor",
+  );
   const { id, pageno } = useParams<{ id: string; pageno: string }>();
   const pageNo = Number(pageno) || 1;
   const navigate = useNavigate();
@@ -56,6 +106,7 @@ export default function InventoryDetails() {
   const [editableProject, setEditableProject] = useState<
     ProjectType | undefined
   >(undefined);
+  const [isAddProjectFloorOpen, setIsAddProjectFloorOpen] = useState(false);
 
   function handleProjectChange(
     field: keyof Omit<ProjectType, "_id" | "wings" | "commercialFloors">,
@@ -214,7 +265,45 @@ export default function InventoryDetails() {
           isEditable={isEditable}
         />
 
-        <WingInfo wings={editableProject?.wings || []} />
+        <WingInfo
+          projectId={editableProject?._id || id}
+          wings={editableProject?.wings || []}
+        />
+
+        {editableProject?.commercialUnitPlacement === "projectLevel" && (
+          <div className="mt-6 border-t pt-6">
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <div>
+                <h3 className="text-lg font-medium">
+                  Project commercial floors
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  Add commercial inventory that is not assigned to a wing.
+                </p>
+              </div>
+              {canCreateFloor && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsAddProjectFloorOpen(true)}
+                >
+                  <Plus className="mr-2 h-4 w-4" /> Add floor
+                </Button>
+              )}
+            </div>
+            <ProjectCommercialFloors
+              floors={editableProject.commercialFloors || []}
+            />
+            {canCreateFloor && (
+              <AddFloorDialog
+                projectId={editableProject._id || id}
+                open={isAddProjectFloorOpen}
+                onOpenChange={setIsAddProjectFloorOpen}
+              />
+            )}
+          </div>
+        )}
 
         {editableProject?.bank && (
           <div className="mt-6">

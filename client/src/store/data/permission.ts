@@ -80,6 +80,7 @@ export const AdminPermissions: Permission[] = [
     actions: [
       "view-inventory",
       "create-inventory",
+      "create-floor",
       "view-inventory-details",
       "delete-inventory",
       "update-inventory",
@@ -254,6 +255,7 @@ export const availablePermissionPages: AvailablePermissionPage[] = [
     actions: [
       { value: "view-inventory", label: "View Inventory" },
       { value: "create-inventory", label: "Create Inventory" },
+      { value: "create-floor", label: "Add Inventory Floor" },
       { value: "view-inventory-details", label: "View Inventory Details" },
       { value: "delete-inventory", label: "Delete Inventory" },
       { value: "update-inventory", label: "Update Inventory" },

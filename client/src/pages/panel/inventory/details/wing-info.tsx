@@ -43,8 +43,9 @@ import { useUpdateClientBooking } from "@/store/client-booking/query";
 import { UnitType, WingType, useInventory } from "@/store/inventory";
 import { capitalizeWords } from "@/utils/func/strUtils";
 import { CustomAxiosError } from "@/utils/types/axios";
-import { MoreHorizontalIcon } from "lucide-react";
+import { MoreHorizontalIcon, Plus } from "lucide-react";
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { AddFloorDialog } from "./add-floor-dialog";
 
 /** ------------------------
  *  UTILITIES
@@ -76,8 +77,20 @@ const countUnitsBy = (units: UnitType[], statusName: string) =>
 /** ------------------------
  *  TOP-LEVEL: WingInfo
  *  ------------------------ */
-export const WingInfo = ({ wings }: { wings: WingType[] }) => {
+export const WingInfo = ({
+  projectId,
+  wings,
+}: {
+  projectId: string;
+  wings: WingType[];
+}) => {
   const [activeWingIndex, setActiveWingIndex] = useState(0);
+  const { combinedRole } = useAuth(true);
+  const canCreateFloor = hasPermission(
+    combinedRole,
+    "Inventory",
+    "create-floor",
+  );
 
   // Fetch categories once and memoize sorted by precedence asc, createdAt desc
   const { useCategoriesList } = useCategories();
@@ -119,7 +132,9 @@ export const WingInfo = ({ wings }: { wings: WingType[] }) => {
               {wings.map((wing, wingIndex) => (
                 <TabsContent key={wingIndex} value={wingIndex.toString()}>
                   <WingCard
+                    projectId={projectId}
                     wing={wing}
+                    canCreateFloor={canCreateFloor}
                     categories={sortedCategories}
                     othersKey={othersKey}
                   />
@@ -128,7 +143,9 @@ export const WingInfo = ({ wings }: { wings: WingType[] }) => {
             </Tabs>
           ) : (
             <WingCard
+              projectId={projectId}
               wing={wings[0]}
+              canCreateFloor={canCreateFloor}
               categories={sortedCategories}
               othersKey={othersKey}
             />
@@ -277,22 +294,40 @@ function FloorTable({
  *  WingCard
  *  ------------------------ */
 function WingCard({
+  projectId,
   wing,
+  canCreateFloor,
   isEditable = false,
   categories,
   othersKey,
 }: {
+  projectId: string;
   wing: WingType;
+  canCreateFloor: boolean;
   isEditable?: boolean;
   categories: InventoryCategoryType[];
   othersKey?: string;
 }) {
+  const [isAddFloorOpen, setIsAddFloorOpen] = useState(false);
+
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-base">
-          Wing {wing.name}
-        </CardTitle>
+        <div className="flex items-center justify-between gap-3">
+          <CardTitle className="flex items-center gap-2 text-base">
+            Wing {wing.name}
+          </CardTitle>
+          {canCreateFloor && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setIsAddFloorOpen(true)}
+            >
+              <Plus className="mr-2 h-4 w-4" /> Add floor
+            </Button>
+          )}
+        </div>
       </CardHeader>
       <CardContent>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
@@ -340,6 +375,14 @@ function WingCard({
         </div>
         <FloorTable wing={wing} categories={categories} othersKey={othersKey} />
       </CardContent>
+      {canCreateFloor && (
+        <AddFloorDialog
+          projectId={projectId}
+          wing={wing}
+          open={isAddFloorOpen}
+          onOpenChange={setIsAddFloorOpen}
+        />
+      )}
     </Card>
   );
 }

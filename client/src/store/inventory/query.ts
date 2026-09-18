@@ -97,6 +97,21 @@ export const useInventory = () => {
     },
   });
 
+  // Add floor mutation
+  const createFloorMutation = useMutation({
+    mutationFn: inventoryApi.createFloor,
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: ["project", variables.projectId],
+      });
+      queryClient.invalidateQueries({ queryKey: ["projects"] });
+      queryClient.invalidateQueries({ queryKey: ["projectsStructure"] });
+    },
+    onError: (error) => {
+      console.error("Failed to create floor:", error);
+    },
+  });
+
   // Unit Queries
   // -----------
 
@@ -209,6 +224,7 @@ export const useInventory = () => {
     createProjectMutation,
     updateProjectMutation,
     deleteProjectMutation,
+    createFloorMutation,
 
     // Unit queries
     useUnitsList,

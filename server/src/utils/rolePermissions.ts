@@ -78,6 +78,7 @@ export const defaultRootPermissions = [
     actions: [
       "view-inventory",
       "create-inventory",
+      "create-floor",
       "view-inventory-details",
       "delete-inventory",
       "update-inventory",

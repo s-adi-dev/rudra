@@ -1,6 +1,11 @@
 import express from "express";
-import { projectController, unitController } from "../controllers/inventory";
+import {
+  floorController,
+  projectController,
+  unitController,
+} from "../controllers/inventory";
 import verifyToken from "../utils/jwt";
+import requirePermission from "../utils/requirePermission";
 
 const router = express.Router();
 
@@ -14,6 +19,13 @@ router.get("/project/name", projectController.getProjectByName);
 router.get("/project/:projectId", projectController.getProjectById);
 router.put("/project/:projectId", projectController.updateProject);
 router.delete("/project/:projectId", projectController.deleteProject);
+
+// Floor routes
+router.post(
+  "/floor",
+  requirePermission("Inventory", "create-floor"),
+  floorController.createFloor,
+);
 
 // Unit routes
 router.post("/unit", unitController.createUnit);
