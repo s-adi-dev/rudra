@@ -69,7 +69,7 @@ const styles = StyleSheet.create({
   page: {
     flexDirection: "column",
     backgroundColor: "#FFFFFF",
-    padding: 30,
+    padding: 20,
     fontSize: 10,
     fontFamily: "Roboto",
     position: "relative", // Important for positioning elements
@@ -121,6 +121,7 @@ const styles = StyleSheet.create({
   bold: { fontWeight: "bold" },
   center: { textAlign: "center" },
   small: { fontSize: 8 },
+  compactNote: { fontSize: 7, lineHeight: 1.1 },
   underline: { textDecoration: "underline" },
 
   // Table styles
@@ -211,7 +212,17 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 5,
   },
+  applicantSignatureBlock: {
+    paddingTop: 24,
+  },
   signatureLine: {
+    borderTopWidth: 1,
+    borderTopColor: "#000",
+    borderTopStyle: "solid",
+    width: 150,
+    marginBottom: 2,
+  },
+  bottomSignatureLine: {
     borderTopWidth: 1,
     borderTopColor: "#000",
     borderTopStyle: "solid",
@@ -247,7 +258,7 @@ const styles = StyleSheet.create({
   // Bottom signatures positioning
   bottomSignatures: {
     position: "absolute",
-    bottom: 20,
+    bottom: 4,
     left: 20,
     right: 20,
     flexDirection: "row",
@@ -645,12 +656,19 @@ const BookingFormPage = ({
                   15 days.
                 </Text>
                 <Text>2) Registration within 30 days from Booking date.</Text>
+                <Text style={styles.compactNote}>
+                  3) 10% of the total deal amount must be paid within 15 days of
+                  booking, otherwise the Company may cancel the booking without
+                  prior notice.
+                </Text>
               </View>
             </View>
 
             {/* First Signature Block */}
             <View style={[styles.row, styles.flexEnd, styles.mt8]}>
-              <View style={styles.signatureBlock}>
+              <View
+                style={[styles.signatureBlock, styles.applicantSignatureBlock]}
+              >
                 <View style={styles.signatureLine} />
                 <Text>APPLICANT SIGNATURE</Text>
               </View>
@@ -685,12 +703,19 @@ const BookingFormPage = ({
                   1) Token amount less than Rs.50,000/- is Non-Refundable. after
                   15 days.
                 </Text>
+                <Text style={styles.compactNote}>
+                  2) 10% of the total deal amount must be paid within 15 days of
+                  booking, otherwise the Company may cancel the booking without
+                  prior notice.
+                </Text>
               </View>
             </View>
 
             {/* First Signature Block */}
             <View style={[styles.row, styles.flexEnd, styles.mt8]}>
-              <View style={styles.signatureBlock}>
+              <View
+                style={[styles.signatureBlock, styles.applicantSignatureBlock]}
+              >
                 <View style={styles.signatureLine} />
                 <Text>APPLICANT SIGNATURE</Text>
               </View>
@@ -781,12 +806,12 @@ const BookingFormPage = ({
         {/* Final Signatures - Absolutely positioned at bottom */}
         <View style={styles.bottomSignatures}>
           <View style={styles.signatureBlock}>
-            <View style={styles.signatureLine} />
+            <View style={styles.bottomSignatureLine} />
             <Text>AUTHORISED SIGNATORY</Text>
           </View>
 
           <View style={styles.signatureBlock}>
-            <View style={styles.signatureLine} />
+            <View style={styles.bottomSignatureLine} />
             <Text>APPLICANT SIGNATURE</Text>
           </View>
         </View>
