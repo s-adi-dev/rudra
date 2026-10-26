@@ -361,7 +361,7 @@ const BookingLedgerList = () => {
       <CardContent>
         {/* Summary Section */}
         {data?.summary && (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 p-4 bg-muted/50 rounded-lg">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6 p-4 bg-muted/50 rounded-lg">
             <div className="text-center">
               <p className="text-sm text-muted-foreground">Total Payments</p>
               <p className="text-md sm:text-lg font-semibold  font-mono">
@@ -384,6 +384,17 @@ const BookingLedgerList = () => {
               <p className="text-sm text-muted-foreground">Total Penalties</p>
               <p className="text-md sm:text-lg font-semibold text-orange-600  font-mono">
                 ₹{data.summary.totalPenalties.toLocaleString("en-IN")}
+              </p>
+            </div>
+            <div className="text-center max-md:col-span-2">
+              <p className="text-sm text-muted-foreground">Total Balance</p>
+              <p className="text-md sm:text-lg font-semibold text-blue-600  font-mono">
+                ₹
+                {(
+                  data.summary.totalPayments -
+                  data.summary.totalRefunds +
+                  data.summary.totalPenalties
+                ).toLocaleString("en-IN")}
               </p>
             </div>
           </div>

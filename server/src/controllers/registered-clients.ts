@@ -4,6 +4,11 @@ import BookingLedger, { PaymentType } from "../models/booking-ledger";
 import ClientBooking from "../models/clientBooking";
 import createError from "../utils/createError";
 
+const activePaymentFilter = {
+  isDeleted: { $nin: [true, "true", 1] },
+  $or: [{ deletedDate: { $exists: false } }, { deletedDate: null }],
+};
+
 interface RegisteredClientData {
   clientId: string;
   date: Date;
@@ -89,7 +94,7 @@ export class RegisteredClientsController {
         {
           $match: {
             clientId: { $in: clientIds },
-            isDeleted: { $ne: true },
+            isDeleted: false,
           },
         },
         {
@@ -266,7 +271,7 @@ export class RegisteredClientsController {
             {
               $match: {
                 clientId: { $in: clientIds },
-                isDeleted: { $ne: true },
+                isDeleted: false,
               },
             },
             {
